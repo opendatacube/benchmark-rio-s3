@@ -4,6 +4,7 @@ import rasterio
 import hashlib
 from types import SimpleNamespace
 import concurrent.futures as fut
+from . import s3fetch
 
 
 def find_next_available_file(fname_pattern, max_n=1000, start=1):
@@ -42,10 +43,11 @@ def slurp_lines(fname, *args, **kwargs):
         return [s.rstrip() for s in f.readlines()]
 
 
-def npz_data_hash(fname, varname=None):
-    def digest(a):
-        return hashlib.sha256(a.tobytes('C')).hexdigest()
+def array_digest(a):
+    return hashlib.sha256(a.tobytes('C')).hexdigest()
 
+
+def npz_data_hash(fname, varname=None):
     f = np.load(fname)
 
     if len(f.files) == 1 and varname is None:
@@ -54,9 +56,9 @@ def npz_data_hash(fname, varname=None):
     if varname is not None:
         if varname not in f:
             return None
-        return digest(f[varname])
+        return array_digest(f[varname])
 
-    return {k: digest(f[k]) for k in f}
+    return {k: array_digest(f[k]) for k in f}
 
 
 def link_x_axis(*axs, start_from_zero=None):
@@ -372,7 +374,7 @@ def process_bunch(files, pp, pool=None, **kwargs):
                            t_total=t_total)
 
 
-def run_main(file_list_file, nthreads, prefix='MXL5'):
+def run_main(file_list_file, nthreads, prefix='MXL5', mode='rio'):
     import pickle
 
     def without(xx, skip):
@@ -387,9 +389,8 @@ def run_main(file_list_file, nthreads, prefix='MXL5'):
                          block_shape=(256, 256),
                          dtype='uint8',
                          nthreads=nthreads,
+                         mode=mode,
                          band=1)
-
-    pool = fut.ThreadPoolExecutor(max_workers=pp.nthreads)
 
     print('''Files:
 {}
@@ -402,7 +403,27 @@ def run_main(file_list_file, nthreads, prefix='MXL5'):
                len(files),
                pp.nthreads))
 
-    xx = process_bunch(files, pp, pool=pool)
+    if mode == 'rio':
+        pool = fut.ThreadPoolExecutor(max_workers=pp.nthreads)
+        xx = process_bunch(files, pp, pool=pool)
+    elif mode == 's3tif':
+
+        rdr = s3fetch.S3TiffReader(nthreads=pp.nthreads,
+                                   region_name='ap-southeast-2')
+        rdr.warmup()
+
+        pix = np.ndarray((len(files), *pp.block_shape), dtype=pp.dtype)
+        _, xx = rdr.read_chunk(files, pp.block, dst=pix)
+
+        for k, v in pp.__dict__.items():
+            if not hasattr(xx.params, k):
+                setattr(xx.params, k, v)
+
+        xx.data = pix
+
+    xx.result_hash = array_digest(xx.data)
+
+    print('Result hash: {}'.format(xx.result_hash))
 
     fnames = {ext: mk_fname(xx.params, ext=ext, prefix=prefix)
               for ext in ['pickle', 'npz']}
@@ -426,13 +447,8 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
 
-    if len(args) not in (2, 3):
-        print('Expect 2 args: file_list num_threads <prefix>')
+    if len(args) not in (2, 3, 4):
+        print('Expect 2 args: file_list num_threads <prefix> <rio|s3tif>')
         return 1
 
     return run_main(*args)
-
-
-if __name__ == '__main__':
-    import sys
-    sys.exit(main())
