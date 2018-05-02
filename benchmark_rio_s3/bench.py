@@ -241,7 +241,9 @@ def plot_stats_results(data, fig):
     return best_idx
 
 
-def plot_comparison(fig, stats, names=None, threshs=None, colors=None):
+def plot_comparison(fig, stats, names=None, threshs=None, colors=None, nochunk=False):
+    from matplotlib import __version__ as mp_version
+
     if names is None:
         names = ['A', 'B']
 
@@ -258,15 +260,28 @@ def plot_comparison(fig, stats, names=None, threshs=None, colors=None):
         threshs = [18000, 250, 100]
 
     if colors is None:
-        colors = (('C0', 'C1'),
-                  ('C4', 'C3'),
-                  ('C9', 'C6'))
+        if mp_version >= '2.0.0':
+            colors = (('C0', 'C1'),
+                      ('C4', 'C3'),
+                      ('C9', 'C6'))
+        else:
+            colors = (('r', 'g'),
+                      ('c', 'm'),
+                      ('b', 'y'))
 
-    linked_hist([s.chunk_size for s in stats],
-                [fig.add_subplot(2, 3, i) for i in [1, 4]],
-                colors[0],
-                'Chunk Size',
-                30, threshs[0])
+
+    if nochunk:
+        linked_hist([s.t_total for s in stats],
+                    [fig.add_subplot(2, 3, i) for i in [1, 4]],
+                    colors[0],
+                    'Total',
+                    30, threshs[0])
+    else:
+        linked_hist([s.chunk_size for s in stats],
+                    [fig.add_subplot(2, 3, i) for i in [1, 4]],
+                    colors[0],
+                    'Chunk Size',
+                    30, threshs[0])
 
     linked_hist([s.t_open for s in stats],
                 [fig.add_subplot(2, 3, i) for i in [2, 5]],
