@@ -269,7 +269,6 @@ def plot_comparison(fig, stats, names=None, threshs=None, colors=None, nochunk=F
                       ('c', 'm'),
                       ('b', 'y'))
 
-
     if nochunk:
         linked_hist([s.t_total for s in stats],
                     [fig.add_subplot(2, 3, i) for i in [1, 4]],
