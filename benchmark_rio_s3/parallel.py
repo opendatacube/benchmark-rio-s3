@@ -17,12 +17,12 @@ def split_it(src, n, qmaxsize=100, sleep=0.05):
                     break
 
     def run_src_pump(src, q, state, sleep, on_blocked=None):
-        for idx, item in enumerate(src):
+        for item in src:
             filled = False
 
             while filled is False and state.abort is False:
                 try:
-                    q.put((idx, item), block=True, timeout=sleep)
+                    q.put(item, block=True, timeout=sleep)
                     filled = True
                 except queue.Full:
                     if on_blocked is not None:
@@ -49,7 +49,7 @@ def split_it(src, n, qmaxsize=100, sleep=0.05):
 class ParallelStreamProc(object):
     """Process stream using multiple threads
 
-    It's like `stream_proc(enumerate(src_stream))` except in parallel across
+    It's like `stream_proc(src_stream)` except in parallel across
     multiple threads, each of the threads will see only part of the original
     stream. Each element of the original stream will be observed by one thread
     only.
@@ -57,7 +57,7 @@ class ParallelStreamProc(object):
     ```
     def stream_proc(src, extra_arg, foo=None):
         # setup local thread storage or whatever
-        for idx, v in src:
+        for v in src:
             pass  # do work, taking care of multi-threading issues
 
     pp_stream_proc = ParalelStreamProc(4).bind(stream_proc)
