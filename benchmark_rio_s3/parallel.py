@@ -118,3 +118,11 @@ class ParallelStreamProc(object):
 
         run.abort = self.abort
         return run
+
+    def broadcast(self, proc, *args, **kwargs):
+        futures = [worker.submit(proc, *args, *kwargs) for worker in self._workers]
+
+        rr = fut.wait(futures)
+        assert len(rr.done) == len(futures)
+
+        return [f.result() for f in rr.done]
