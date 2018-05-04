@@ -131,6 +131,12 @@ Tile: ({pp.tile[0]:d},{pp.tile[1]:d})@{pp.block[0]:d}_{pp.block[1]:d}#{pp.band:d
 '''.format(pp=xx.params,
            extra_msg='' if extra_msg is None else '   - ' + extra_msg).strip()
 
+    hash = getattr(xx, 'result_hash', None)
+    if hash is not None:
+        hash = hash[:32]+'..'+hash[-8:]
+    else:
+        hash = "<no hash recorded>"
+
     return '''
 -------------------------------------------------------------
 {}
@@ -147,6 +153,7 @@ Time:
   - open    {:7.3f} [{:.<6.1f}..{:.>7.1f}] ms {:4.1f}%
   - read    {:7.3f} [{:.<6.1f}..{:.>7.1f}] ms {:4.1f}%
 
+ {}
  total_cpu: {:.2f} sec
  walltime : {:.2f} sec
 -------------------------------------------------------------
@@ -158,6 +165,8 @@ Time:
 
            t_open.mean(), t_open.min(), t_open.max(), (t_open/t_total).mean()*100,
            t_read.mean(), t_read.min(), t_read.max(), (t_read/t_total).mean()*100,
+
+           hash,
 
            (t_total.sum()*1e-3).round(),
            xx.t_total).strip()
@@ -388,11 +397,22 @@ def process_bunch(files, pp, pool=None, **kwargs):
                            t_total=t_total)
 
 
-def run_main(file_list_file, nthreads, prefix='MXL5', mode='rio'):
+def string2bool(s):
+    return s.lower() in ['y', 'yes', 't', 'true', '1']
+
+
+def run_main(file_list_file, nthreads,
+             prefix='MXL5',
+             mode='rio',
+             ssl='no',
+             npz='no'):
     import pickle
 
     def without(xx, skip):
         return SimpleNamespace(**{k: v for k, v in xx.__dict__.items() if k not in skip})
+
+    ssl = string2bool(ssl)
+    npz = string2bool(npz)
 
     nthreads = int(nthreads)
 
@@ -421,9 +441,11 @@ def run_main(file_list_file, nthreads, prefix='MXL5', mode='rio'):
         pool = fut.ThreadPoolExecutor(max_workers=pp.nthreads)
         xx = process_bunch(files, pp, pool=pool)
     elif mode == 's3tif':
+        pp.ssl = ssl
 
         rdr = s3fetch.S3TiffReader(nthreads=pp.nthreads,
-                                   region_name='ap-southeast-2')
+                                   region_name='ap-southeast-2',
+                                   use_ssl=ssl)
         rdr.warmup()
 
         pix = np.ndarray((len(files), *pp.block_shape), dtype=pp.dtype)
@@ -445,12 +467,14 @@ def run_main(file_list_file, nthreads, prefix='MXL5', mode='rio'):
     pickle.dump(without(xx, ['data']),
                 open(fnames['pickle'], 'wb'))
 
-    np.savez(fnames['npz'], data=xx.data)
-
     print('''Saved results to:
-    - {}
-    - {}
-'''.format(fnames['pickle'], fnames['npz']))
+    - {}'''.format(fnames['pickle']))
+
+    if npz:
+        np.savez(fnames['npz'], data=xx.data)
+        print('    - {}'.format(fnames['npz']))
+
+    print(gen_stats_report(xx))
 
     return 0
 
@@ -461,8 +485,19 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
 
-    if len(args) not in (2, 3, 4):
-        print('Expect 2 args: file_list num_threads <prefix> <rio|s3tif>')
+    aa = []
+    kw = {}
+
+    for a in args:
+        kv = a.split('=')
+        if len(kv) == 1:
+            aa.append(a)
+        elif len(kv) == 2:
+            k, v = kv
+            kw[k] = v
+
+    if len(aa) != 2:
+        print('Expect at least 2 args: file_list num_threads <prefix=prefix> <mode=rio|s3tif> <ssl=y|n> <npz=y|n>')
         return 1
 
-    return run_main(*args)
+    return run_main(*aa, **kw)
