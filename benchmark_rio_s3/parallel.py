@@ -9,8 +9,8 @@ def split_it(src, n, qmaxsize=100, sleep=0.05):
     def q2it(q, state, timeout):
         while state.abort is False:
             try:
-                idx, item = q.get(block=True, timeout=timeout)
-                yield (idx, item)
+                item = q.get(block=True, timeout=timeout)
+                yield item
                 q.task_done()
             except queue.Empty:
                 if state.completed:
