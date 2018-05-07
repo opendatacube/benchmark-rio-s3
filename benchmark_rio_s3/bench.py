@@ -1,10 +1,9 @@
 from matplotlib import pyplot as plt
 import numpy as np
-import rasterio
 import hashlib
 from types import SimpleNamespace
-import concurrent.futures as fut
 from . import s3fetch
+from . import pread_rio
 
 
 def find_next_available_file(fname_pattern, max_n=1000, start=1):
@@ -306,47 +305,6 @@ def plot_comparison(fig, stats, names=None, threshs=None, colors=None, nochunk=F
     fig.tight_layout()
 
 
-def read_block_with_stats(uri, block, band=1, out=None):
-    from timeit import default_timer as t_now
-
-    t0 = t_now()
-
-    with rasterio.Env(VSI_CACHE=True,
-                      CPL_VSIL_CURL_ALLOWED_EXTENSIONS='tif',
-                      GDAL_DISABLE_READDIR_ON_OPEN=True):
-
-        with rasterio.open(uri, 'r') as f:
-            win = f.block_window(band, *block)
-            t1 = t_now()
-            out = f.read(band, window=win, out=out)
-            t2 = t_now()
-            chunk_size = f.block_size(band, *block)
-
-    stats = SimpleNamespace(t_open=t1 - t0,
-                            t_total=t2 - t0,
-                            chunk_size=chunk_size)
-    return out, stats
-
-
-def mk_proc(files, params, verbose=True):
-
-    dd = np.ndarray((len(files), *params.block_shape), dtype=params.dtype)
-
-    def proc(f, idx):
-        MAX_DOTS = 50
-        _, stats = read_block_with_stats(f, params.block, out=dd[idx, :, :])
-        stats.idx = idx
-
-        if verbose:
-            print('.', end='', flush=True)
-            if ((idx+1) % MAX_DOTS) == 0 and idx > 0:
-                print('')
-
-        return stats
-
-    return dd, proc
-
-
 def update_params(pp, **kwargs):
     from copy import copy
     pp = copy(pp)
@@ -356,45 +314,6 @@ def update_params(pp, **kwargs):
         else:
             raise ValueError("No such parameter: '{}'".format(k))
     return pp
-
-
-def process_bunch(files, pp, pool=None, **kwargs):
-    from timeit import default_timer as t_now
-
-    pp = update_params(pp, **kwargs)
-
-    single_threaded = pp.nthreads == 1
-
-    if pool is None and not single_threaded:
-        pool = fut.ThreadPoolExecutor(max_workers=pp.nthreads)
-
-    dd, proc = mk_proc(files, pp, verbose=single_threaded)
-
-    t0 = t_now()
-
-    if single_threaded:
-        rr = [proc(f, i) for i, f in enumerate(files)]
-    else:
-        futures = [pool.submit(proc, fname, idx)
-                   for idx, fname in enumerate(files)]
-
-        rr = sorted([f.result() for f in fut.wait(futures).done], key=lambda s: s.idx)
-
-        assert len(rr) == len(files)
-
-    t_total = t_now() - t0
-
-    print('\nDone: {:d} in {:.3f} secs using {:d} thread{}'.format(
-        len(rr),
-        t_total,
-        pp.nthreads,
-        's' if pp.nthreads > 1 else '',
-    ))
-
-    return SimpleNamespace(data=dd,
-                           stats=rr,
-                           params=pp,
-                           t_total=t_total)
 
 
 def string2bool(s):
@@ -424,6 +343,7 @@ def run_main(file_list_file, nthreads,
                          dtype='uint8',
                          nthreads=nthreads,
                          mode=mode,
+                         ssl=ssl,
                          band=1)
 
     print('''Files:
@@ -432,48 +352,46 @@ def run_main(file_list_file, nthreads,
 {}
     files   - {:d}
     threads - {:d}
+    mode    - {}
     '''.format('\n'.join(files[:3]),
                '\n'.join(files[-2:]),
                len(files),
-               pp.nthreads))
+               pp.nthreads,
+               mode))
 
-    if mode == 'rio':
-        pool = fut.ThreadPoolExecutor(max_workers=pp.nthreads)
-        xx = process_bunch(files, pp, pool=pool)
-    elif mode == 's3tif':
-        pp.ssl = ssl
+    procs = {'rio': pread_rio.PReadRIO,
+             's3tif': s3fetch.S3TiffReader}
 
-        rdr = s3fetch.S3TiffReader(nthreads=pp.nthreads,
-                                   region_name='ap-southeast-2',
-                                   use_ssl=ssl)
-        rdr.warmup()
-
-        pix = np.ndarray((len(files), *pp.block_shape), dtype=pp.dtype)
-        _, xx = rdr.read_blocks(files, pp.block, dst=pix)
-
-        for k, v in pp.__dict__.items():
-            if not hasattr(xx.params, k):
-                setattr(xx.params, k, v)
-
-        xx.data = pix
-    else:
+    if mode not in procs:
         raise ValueError('Unknown mode: {} only know: rio|s3tif'.format(mode))
+    ProcClass = procs[mode]
 
-    xx.result_hash = array_digest(xx.data)
+    rdr = ProcClass(nthreads=pp.nthreads,
+                    region_name='ap-southeast-2',
+                    use_ssl=ssl)
+    rdr.warmup()
+
+    pix = np.ndarray((len(files), *pp.block_shape), dtype=pp.dtype)
+    _, xx = rdr.read_blocks(files, pp.block, dst=pix)
+
+    for k, v in pp.__dict__.items():
+        if not hasattr(xx.params, k):
+            setattr(xx.params, k, v)
+
+    xx.result_hash = array_digest(pix)
 
     print('Result hash: {}'.format(xx.result_hash))
 
     fnames = {ext: mk_fname(xx.params, ext=ext, prefix=prefix)
               for ext in ['pickle', 'npz']}
 
-    pickle.dump(without(xx, ['data']),
-                open(fnames['pickle'], 'wb'))
+    pickle.dump(xx, open(fnames['pickle'], 'wb'))
 
     print('''Saved results to:
     - {}'''.format(fnames['pickle']))
 
     if npz:
-        np.savez(fnames['npz'], data=xx.data)
+        np.savez(fnames['npz'], data=pix)
         print('    - {}'.format(fnames['npz']))
 
     print(gen_stats_report(xx))
