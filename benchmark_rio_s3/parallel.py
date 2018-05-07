@@ -4,41 +4,49 @@ from types import SimpleNamespace
 
 __all__ = ['ParallelStreamProc']
 
+EOS_MARKER = object()
+
 
 def split_it(src, n, qmaxsize=100, sleep=0.05):
     def q2it(q, state, timeout):
         while state.abort is False:
             try:
                 item = q.get(block=True, timeout=timeout)
+
+                if item is EOS_MARKER:
+                    q.task_done()
+                    return
+
                 yield item
                 q.task_done()
             except queue.Empty:
-                if state.completed:
-                    break
+                pass
 
     def run_src_pump(src, q, state, sleep, on_blocked=None):
-        for item in src:
-            filled = False
-
-            while filled is False and state.abort is False:
+        def submit_with_retry(item):
+            while state.abort is False:
                 try:
                     q.put(item, block=True, timeout=sleep)
-                    filled = True
+                    return True
                 except queue.Full:
                     if on_blocked is not None:
                         on_blocked(state)
+            return False
 
-            if state.abort:
-                return
+        for item in src:
+            if submit_with_retry(item) is False:
+                return  # Aborted
 
-        state.completed = True  # Mark end of stream to consumers
+        # Submit n EOS markers, one for each processing thread
+        for _ in range(n):
+            if submit_with_retry(EOS_MARKER) is False:
+                return  # Aborted
+
         q.join()
 
     q = queue.Queue(maxsize=qmaxsize)
 
-    state = SimpleNamespace(abort=False,
-                            completed=False,
-                            _queue=q)
+    state = SimpleNamespace(abort=False, _queue=q)
 
     consumers = [q2it(q, state, timeout=sleep) for _ in range(n)]
     state.run = lambda on_blocked=None: run_src_pump(src, q, state, sleep, on_blocked=on_blocked)
