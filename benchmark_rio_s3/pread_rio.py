@@ -31,10 +31,12 @@ class PReadRIO(object):
                                              chunk_size=chunk_size)
 
     def __init__(self, nthreads,
-                 region_name='ap-southeast-2'):
+                 region_name='ap-southeast-2',
+                 use_ssl=True):
         self._nthreads = nthreads
         self._pstream = ParallelStreamProc(nthreads)
         self._rdr_block = self._pstream.bind(PReadRIO.block_stream_proc)
+        self._use_ssl = use_ssl  # At least for now we ignore this param
 
         self._env = rasterio.Env(VSI_CACHE=True,
                                  CPL_VSIL_CURL_ALLOWED_EXTENSIONS='tif',
@@ -68,8 +70,7 @@ class PReadRIO(object):
                                  dtype=dst.dtype.name,
                                  block=block_idx)
 
-        return SimpleNamespace(data=dst,
-                               stats=stats,
-                               params=params,
-                               t0=t0,
-                               t_total=t_total)
+        return dst, SimpleNamespace(stats=stats,
+                                    params=params,
+                                    t0=t0,
+                                    t_total=t_total)

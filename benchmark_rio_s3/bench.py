@@ -449,13 +449,15 @@ def run_main(file_list_file, nthreads,
         rdr.warmup()
 
         pix = np.ndarray((len(files), *pp.block_shape), dtype=pp.dtype)
-        _, xx = rdr.read_chunk(files, pp.block, dst=pix)
+        _, xx = rdr.read_blocks(files, pp.block, dst=pix)
 
         for k, v in pp.__dict__.items():
             if not hasattr(xx.params, k):
                 setattr(xx.params, k, v)
 
         xx.data = pix
+    else:
+        raise ValueError('Unknown mode: {} only know: rio|s3tif'.format(mode))
 
     xx.result_hash = array_digest(xx.data)
 
