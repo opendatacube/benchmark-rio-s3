@@ -83,7 +83,12 @@ class ParallelStreamProc(object):
         self._nthreads = nthreads
         self._state = None
 
-    def _run(self, src, stream_proc, on_blocked=None, max_workers=None, args=(), kwargs=None):
+    def _run(self, src, stream_proc,
+             on_blocked=None,
+             max_workers=None,
+             qmaxsize=None,
+             sleep=0.05,
+             args=(), kwargs=None):
         if max_workers is None:
             max_workers = self._nthreads
         elif max_workers > self._nthreads:
@@ -91,13 +96,16 @@ class ParallelStreamProc(object):
         elif max_workers < 1:
             raise ValueError("max_workers can not be less than 1")
 
+        if qmaxsize is None:
+            qmaxsize = 100  # TODO: better default choice?
+
         if kwargs is None:
             kwargs = {}
 
         if self._state is not None:
             raise ValueError("Can not run concurrent jobs")
 
-        state, its = split_it(src, max_workers)
+        state, its = split_it(src, max_workers, qmaxsize=qmaxsize, sleep=sleep)
         self._state = state
 
         futures = [worker.submit(stream_proc, it, *args, **kwargs)
@@ -115,12 +123,14 @@ class ParallelStreamProc(object):
         if state:
             state.abort = True
 
-    def bind(self, stream_proc, on_blocked=None, max_workers=None):
+    def bind(self, stream_proc, on_blocked=None, max_workers=None, qmaxsize=None, sleep=0.05):
         def run(src, *args, **kwargs):
             return self._run(src,
                              stream_proc,
                              on_blocked=on_blocked,
                              max_workers=max_workers,
+                             qmaxsize=qmaxsize,
+                             sleep=sleep,
                              args=args,
                              kwargs=kwargs)
 
