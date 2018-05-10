@@ -109,8 +109,9 @@ class PReadRIO(object):
         """
         def _warmup():
             session = get_boto3_session(region_name=self._region_name)
-            if action:
-                action()
+            with rasterio.Env(session=session, **self._gdal_opts):
+                if action:
+                    action()
             return session.get_credentials()
 
         return self._pstream.broadcast(_warmup)
