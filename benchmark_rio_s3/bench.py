@@ -429,7 +429,7 @@ def run_bench_suite(uris_file,
         mode_prefixes = dict(rio='RIO',
                              s3tif='S3T')
 
-    out_dir = Path(datetime.now().isoformat(timespec='minutes'))
+    out_dir = Path(''.join(datetime.now().isoformat().split(':')[:2]))
 
     if out_dir.exists():
         print('Output directory: {} already exists'.format(out_dir))
@@ -441,7 +441,7 @@ def run_bench_suite(uris_file,
     copy_file = str(out_dir/'urls.txt')
     shutil.copy(uris_file, copy_file)
 
-    os.chdir(out_dir)
+    os.chdir(str(out_dir))
 
     # warmup bucket
     for _ in range(warmup_passes):
