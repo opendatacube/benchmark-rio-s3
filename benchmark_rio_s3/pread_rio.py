@@ -5,7 +5,7 @@ import threading
 import boto3
 from .parallel import ParallelStreamProc
 
-__all__ = ["PReadRIO"]
+__all__ = ["PReadRIO_bench"]
 
 _thread_lcl = threading.local()
 
@@ -18,7 +18,7 @@ def get_boto3_session(region_name='ap-southeast-2'):
     return session
 
 
-class PReadRIO(object):
+class PReadRIO_bench(object):
     @staticmethod
     def block_stream_proc(src_stream,
                           block,
@@ -51,7 +51,7 @@ class PReadRIO(object):
                  use_ssl=True):
         self._nthreads = nthreads
         self._pstream = ParallelStreamProc(nthreads)
-        self._rdr_block = self._pstream.bind(PReadRIO.block_stream_proc)
+        self._rdr_block = self._pstream.bind(PReadRIO_bench.block_stream_proc)
         self._use_ssl = use_ssl  # At least for now we ignore this param
         self._region_name = region_name
 

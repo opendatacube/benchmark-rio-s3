@@ -359,7 +359,7 @@ def run_main(file_list_file, nthreads,
                pp.nthreads,
                mode))
 
-    procs = {'rio': pread_rio.PReadRIO,
+    procs = {'rio': pread_rio.PReadRIO_bench,
              's3tif': s3fetch.S3TiffReader}
 
     if mode not in procs:
