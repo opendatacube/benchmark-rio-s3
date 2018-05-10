@@ -1,5 +1,6 @@
 import concurrent.futures as fut
 import queue
+import itertools
 from types import SimpleNamespace
 
 __all__ = ['ParallelStreamProc']
@@ -33,13 +34,10 @@ def split_it(src, n, qmaxsize=100, sleep=0.05):
                         on_blocked(state)
             return False
 
+        # Submit n EOS markers at the end, one for each processing thread
+        src = itertools.chain(src, itertools.repeat(EOS_MARKER, n))
         for item in src:
             if submit_with_retry(item) is False:
-                return  # Aborted
-
-        # Submit n EOS markers, one for each processing thread
-        for _ in range(n):
-            if submit_with_retry(EOS_MARKER) is False:
                 return  # Aborted
 
         q.join()
