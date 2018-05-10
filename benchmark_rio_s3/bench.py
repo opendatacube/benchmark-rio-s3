@@ -399,6 +399,64 @@ def run_main(file_list_file, nthreads,
     return 0
 
 
+def run_bench_suite(uris_file,
+                    thread_counts=None,
+                    mode_prefixes=None,
+                    ssl='y',
+                    times=1,
+                    warmup_passes=1):
+    import sys
+    import os
+    from datetime import datetime
+    from pathlib import Path
+    import shutil
+    from subprocess import check_call
+
+    bench_app = Path(__file__).resolve().parent.parent/'runbench.py'
+    bench_app = bench_app.resolve()
+
+    def external_run_bench(urls, nthreads, prefix, npz='n', ssl='y', mode='rio'):
+        def opts(**kwargs):
+            return ['{}={}'.format(k, v) for k, v in kwargs.items()]
+
+        args = [sys.executable, str(bench_app), urls, str(nthreads)] + opts(npz=npz, ssl=ssl, mode=mode, prefix=prefix)
+        return check_call(args)
+
+    if thread_counts is None:
+        thread_counts = [1, 2, 4, 8, 16, 20, 24, 28, 32, 38]
+
+    if mode_prefixes is None:
+        mode_prefixes = dict(rio='RIO',
+                             s3tif='S3T')
+
+    out_dir = Path(datetime.now().isoformat(timespec='minutes'))
+
+    if out_dir.exists():
+        print('Output directory: {} already exists'.format(out_dir))
+        return 1
+
+    out_dir.mkdir()
+    out_dir = out_dir.resolve()
+
+    copy_file = str(out_dir/'urls.txt')
+    shutil.copy(uris_file, copy_file)
+
+    os.chdir(out_dir)
+
+    # warmup bucket
+    for _ in range(warmup_passes):
+        external_run_bench(copy_file, 32, prefix='WMP')
+
+    for tc in thread_counts:
+        for mode in ['rio', 's3tif']:
+            prefix = mode_prefixes[mode]
+            for _ in range(times):
+                external_run_bench(copy_file, tc, prefix=prefix, mode=mode, ssl=ssl)
+
+    print('Results saved to: "{}"'.format(out_dir))
+    return 0
+
+
 def main(args=None):
     import sys
 
@@ -415,6 +473,17 @@ def main(args=None):
         elif len(kv) == 2:
             k, v = kv
             kw[k] = v
+
+    if len(aa) == 1:
+        for k in ['times', 'warmup_passes']:
+            if k in kw:
+                kw[k] = int(kw[k])
+
+        if 'thread_counts' in kw:
+            kw['thread_counts'] = [int(x) for x in kw['thread_counts'].split(',')]
+
+        print('Run test suite with file: ' + aa[0])
+        return run_bench_suite(aa[0], **kw)
 
     if len(aa) != 2:
         print('Expect at least 2 args: file_list num_threads <prefix=prefix> <mode=rio|s3tif> <ssl=y|n> <npz=y|n>')
