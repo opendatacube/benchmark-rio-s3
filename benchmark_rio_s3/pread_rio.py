@@ -11,10 +11,17 @@ _thread_lcl = threading.local()
 
 
 def get_boto3_session(region_name='ap-southeast-2'):
-    session = getattr(_thread_lcl, 'session', None)
+    sessions = getattr(_thread_lcl, 'sessions', None)
+    if sessions is None:
+        sessions = {}
+        setattr(_thread_lcl, 'sessions', sessions)
+
+    session = sessions.get(region_name)
+
     if session is None:
         session = boto3.Session(region_name=region_name)
-        setattr(_thread_lcl, 'session', session)
+        sessions[region_name] = session
+
     return session
 
 
