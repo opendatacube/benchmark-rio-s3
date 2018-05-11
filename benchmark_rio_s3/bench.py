@@ -264,7 +264,7 @@ def plot_stats_results(data, fig, cc=None):
 
     ax = fig.add_subplot(2, 2, 3)
     c = cc[2]
-    ax.plot(n_threads, wkpt, c+'o-')
+    ax.plot(n_threads, wkpt, c+'o-', linewidth=3, alpha=0.7)
     ax.xaxis.set_ticks(x_ticks)
     ax.set_xlabel('# Worker Threads')
     ax.set_ylabel('Efficiency per thread %')
