@@ -436,7 +436,11 @@ def run_bench_suite(uris_file,
         def opts(**kwargs):
             return ['{}={}'.format(k, v) for k, v in kwargs.items()]
 
-        args = [sys.executable, str(bench_app), urls, str(nthreads)] + opts(npz=npz, wmore=wmore, ssl=ssl, mode=mode, prefix=prefix)
+        args = [sys.executable, str(bench_app), urls, str(nthreads)] + opts(npz=npz,
+                                                                            wmore=wmore,
+                                                                            ssl=ssl,
+                                                                            mode=mode,
+                                                                            prefix=prefix)
         return check_call(args)
 
     if thread_counts is None:
