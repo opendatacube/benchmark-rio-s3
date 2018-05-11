@@ -324,6 +324,7 @@ def run_main(file_list_file, nthreads,
              prefix='MXL5',
              mode='rio',
              ssl='no',
+             wmore='y',
              npz='no'):
     import pickle
 
@@ -332,6 +333,7 @@ def run_main(file_list_file, nthreads,
 
     ssl = string2bool(ssl)
     npz = string2bool(npz)
+    wmore = string2bool(wmore)
 
     nthreads = int(nthreads)
 
@@ -371,6 +373,14 @@ def run_main(file_list_file, nthreads,
                     use_ssl=ssl)
     rdr.warmup()
 
+    if wmore:
+        nwarm = min(len(files), pp.nthreads)
+        print('Will read {} files for warmup first'.format(nwarm))
+
+        pix = np.ndarray((nwarm, *pp.block_shape), dtype=pp.dtype)
+        _, ww = rdr.read_blocks(files[-nwarm:], pp.block, dst=pix)
+        print('Done in {:.3f} seconds'.format(ww.t_total))
+
     pix = np.ndarray((len(files), *pp.block_shape), dtype=pp.dtype)
     _, xx = rdr.read_blocks(files, pp.block, dst=pix)
 
@@ -379,6 +389,9 @@ def run_main(file_list_file, nthreads,
             setattr(xx.params, k, v)
 
     xx.result_hash = array_digest(pix)
+
+    if wmore:
+        xx._warmup = ww
 
     print('Result hash: {}'.format(xx.result_hash))
 
@@ -403,6 +416,7 @@ def run_bench_suite(uris_file,
                     thread_counts=None,
                     mode_prefixes=None,
                     ssl='y',
+                    wmore='y',
                     times=1,
                     warmup_passes=1):
     import sys
@@ -415,11 +429,11 @@ def run_bench_suite(uris_file,
     bench_app = Path(__file__).resolve().parent.parent/'runbench.py'
     bench_app = bench_app.resolve()
 
-    def external_run_bench(urls, nthreads, prefix, npz='n', ssl='y', mode='rio'):
+    def external_run_bench(urls, nthreads, prefix, npz='n', ssl='y', mode='rio', wmore='y'):
         def opts(**kwargs):
             return ['{}={}'.format(k, v) for k, v in kwargs.items()]
 
-        args = [sys.executable, str(bench_app), urls, str(nthreads)] + opts(npz=npz, ssl=ssl, mode=mode, prefix=prefix)
+        args = [sys.executable, str(bench_app), urls, str(nthreads)] + opts(npz=npz, wmore=wmore, ssl=ssl, mode=mode, prefix=prefix)
         return check_call(args)
 
     if thread_counts is None:
@@ -445,13 +459,13 @@ def run_bench_suite(uris_file,
 
     # warmup bucket
     for _ in range(warmup_passes):
-        external_run_bench(copy_file, 32, prefix='WMP')
+        external_run_bench(copy_file, 32, prefix='WMP', wmore=wmore, ssl=ssl)
 
     for tc in thread_counts:
         for mode in ['rio', 's3tif']:
             prefix = mode_prefixes[mode]
             for _ in range(times):
-                external_run_bench(copy_file, tc, prefix=prefix, mode=mode, ssl=ssl)
+                external_run_bench(copy_file, tc, prefix=prefix, mode=mode, ssl=ssl, wmore=wmore)
 
     print('Results saved to: "{}"'.format(out_dir))
     return 0
