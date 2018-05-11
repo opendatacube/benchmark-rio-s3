@@ -84,6 +84,16 @@ def add_hist(data, n, ax=None, n_sigma=None, thresh=None, **kwargs):
     return ax.hist(data, n, **kwargs)
 
 
+def files_per_second(t_end):
+    """ Compute files per second as a function of completion time
+
+    Return: sorted(t_end), files_per_second
+    """
+    tt = np.sort(t_end)
+    nn = np.arange(1, tt.shape[0] + 1)
+    return tt, nn/tt
+
+
 def unpack_stats(xx, ms=False):
     t_scaler = 1000 if ms else 1
 
@@ -92,9 +102,22 @@ def unpack_stats(xx, ms=False):
     t_total = np.r_[[r.t_total for r in xx.stats]]*t_scaler
     t_read = t_total - t_open
 
+    if hasattr(xx.stats[0], 't0'):
+        t0 = np.r_[[r.t0 for r in xx.stats]]*t_scaler
+        t0 -= t0.min()
+        t_end = t0 + t_total
+        fps_t, fps = files_per_second(t_end/t_scaler)
+    else:
+        t0, t_end, fps, fps_t = [None]*4
+
     return SimpleNamespace(chunk_size=chunk_size,
+                           nthreads=xx.params.nthreads,
+                           t0=t0,
+                           t_end=t_end,
                            t_open=t_open,
                            t_read=t_read,
+                           fps=fps,
+                           fps_t=fps_t,
                            t_total=t_total)
 
 
@@ -221,6 +244,13 @@ def plot_stats_results(data, fig, cc=None):
                                                    len(s.stats))
                                                   for s in data]].T
     files_per_second = total_f/total_t
+
+    sts = [unpack_stats(d) for d in data]
+    if False and sts[0].fps is not None:
+        fps_median = np.array([np.median(st.fps) for st in sts])
+    else:
+        fps_median = None
+
     kb_throughput = total_b/total_t/(1 << 10)
     wkpt = files_per_second/n_threads
     wkpt = 100*wkpt/wkpt.max()
@@ -248,6 +278,9 @@ def plot_stats_results(data, fig, cc=None):
     ax = fig.add_subplot(2, 2, 2)
     c = cc[1]
     ax.plot(n_threads, files_per_second, c+'s-', linewidth=3, alpha=0.7)
+    if fps_median is not None:
+        ax.plot(n_threads, fps_median, cc[0]+'o-', linewidth=3, alpha=0.7)
+
     ax.set_xlabel('# Worker Threads')
     ax.set_ylabel('Files/sec')
     ax.xaxis.set_ticks(x_ticks)
