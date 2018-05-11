@@ -206,42 +206,79 @@ def plot_results(rr, fig=None):
     return fig
 
 
-def plot_stats_results(data, fig):
-    n_threads, total_t, total_b = np.r_[[(s.params.nthreads, s.t_total, sum([x.chunk_size for x in s.stats]))
-                                         for s in data]].T
+def plot_stats_results(data, fig, cc=None):
+    from matplotlib import __version__ as mp_version
+
+    if cc is None:
+        if mp_version >= '2.0.0':
+            cc = ['C0', 'C1', 'C2']
+        else:
+            cc = ['b', 'g', 'r']
+
+    n_threads, total_t, total_b, total_f = np.r_[[(s.params.nthreads,
+                                                   s.t_total,
+                                                   sum([x.chunk_size for x in s.stats]),
+                                                   len(s.stats))
+                                                  for s in data]].T
+    files_per_second = total_f/total_t
+    kb_throughput = total_b/total_t/(1 << 10)
+
     best_idx = total_t.argmin()
 
     x_ticks = np.array([1] + list(range(4, int(n_threads.max()), 4))
                        + [n_threads.max()])
 
-    ax = fig.add_subplot(2, 2, 1)
-    ax.plot(n_threads, total_t, 'bo-', linewidth=3, alpha=0.7)
+    ax = fig.add_subplot(1, 3, 1)
+    c = cc[0]
+    ax.plot(n_threads, total_t, c+'o-', linewidth=3, alpha=0.7)
     ax.set_xlabel('# Worker Threads')
     ax.set_ylabel('Time (secs)')
     ax.xaxis.set_ticks(x_ticks)
 
     ax.annotate('{s.t_total:.3f} secs using {s.params.nthreads:d} threads'.format(s=data[best_idx]),
                 xy=(n_threads[best_idx], total_t[best_idx]),
-                xytext=(0.3, 0.5),
+                xytext=(0.3, 0.9),
                 textcoords='axes fraction',
-                arrowprops=dict(facecolor='blue',
+                arrowprops=dict(facecolor=c,
                                 alpha=0.4,
                                 shrink=0.05))
 
-    kb_throughput = total_b/total_t/(1 << 10)
-    ax = fig.add_subplot(2, 2, 2)
-    ax.plot(n_threads, kb_throughput, 'ro-', linewidth=3, alpha=0.7)
+    ax = fig.add_subplot(1, 3, 2)
+    c = cc[1]
+    ax.plot(n_threads, files_per_second, c+'s-', linewidth=3, alpha=0.7)
     ax.set_xlabel('# Worker Threads')
-    ax.set_ylabel('KiB/sec')
+    ax.set_ylabel('Files/sec')
     ax.xaxis.set_ticks(x_ticks)
+
+    ax.annotate('{frate:.0f} files/s using {s.params.nthreads:d} threads'.format(
+        frate=files_per_second[best_idx],
+        s=data[best_idx]),
+                xy=(n_threads[best_idx], files_per_second[best_idx]),
+                xytext=(0.3, 0.1),
+                textcoords='axes fraction',
+                arrowprops=dict(facecolor=c,
+                                alpha=0.4,
+                                shrink=0.05))
+
+    ax = fig.add_subplot(1, 3, 3)
+    c = cc[2]
+    ax.plot(n_threads, kb_throughput, c+'o-', linewidth=3, alpha=0.7)
+    ax.set_xlabel('# Worker Threads')
+    ax.set_ylabel('KiB/sec*')
+    ax.xaxis.set_ticks(x_ticks)
+
+    ax.annotate('* excluding headers',
+                xy=(1, 1),
+                xytext=(0.05, 0.9),
+                textcoords='axes fraction')
 
     ax.annotate('{kbps:.0f} KiB/s using {s.params.nthreads:d} threads'.format(
         kbps=kb_throughput[best_idx],
         s=data[best_idx]),
                 xy=(n_threads[best_idx], kb_throughput[best_idx]),
-                xytext=(0.3, 0.5),
+                xytext=(0.3, 0.1),
                 textcoords='axes fraction',
-                arrowprops=dict(facecolor='red',
+                arrowprops=dict(facecolor=c,
                                 alpha=0.4,
                                 shrink=0.05))
 
