@@ -211,9 +211,9 @@ def plot_stats_results(data, fig, cc=None):
 
     if cc is None:
         if mp_version >= '2.0.0':
-            cc = ['C0', 'C1', 'C2']
+            cc = ['C0', 'C1', 'C2', 'C3']
         else:
-            cc = ['b', 'g', 'r']
+            cc = ['b', 'g', 'r', 'm']
 
     n_threads, total_t, total_b, total_f = np.r_[[(s.params.nthreads,
                                                    s.t_total,
@@ -222,13 +222,15 @@ def plot_stats_results(data, fig, cc=None):
                                                   for s in data]].T
     files_per_second = total_f/total_t
     kb_throughput = total_b/total_t/(1 << 10)
+    wkpt = files_per_second/n_threads
+    wkpt = 100*wkpt/wkpt.max()
 
     best_idx = total_t.argmin()
 
     x_ticks = np.array([1] + list(range(4, int(n_threads.max()), 4))
                        + [n_threads.max()])
 
-    ax = fig.add_subplot(1, 3, 1)
+    ax = fig.add_subplot(2, 2, 1)
     c = cc[0]
     ax.plot(n_threads, total_t, c+'o-', linewidth=3, alpha=0.7)
     ax.set_xlabel('# Worker Threads')
@@ -243,7 +245,7 @@ def plot_stats_results(data, fig, cc=None):
                                 alpha=0.4,
                                 shrink=0.05))
 
-    ax = fig.add_subplot(1, 3, 2)
+    ax = fig.add_subplot(2, 2, 2)
     c = cc[1]
     ax.plot(n_threads, files_per_second, c+'s-', linewidth=3, alpha=0.7)
     ax.set_xlabel('# Worker Threads')
@@ -260,8 +262,16 @@ def plot_stats_results(data, fig, cc=None):
                                 alpha=0.4,
                                 shrink=0.05))
 
-    ax = fig.add_subplot(1, 3, 3)
+    ax = fig.add_subplot(2, 2, 3)
     c = cc[2]
+    ax.plot(n_threads, wkpt, c+'o-')
+    ax.xaxis.set_ticks(x_ticks)
+    ax.set_xlabel('# Worker Threads')
+    ax.set_ylabel('Efficiency per thread %')
+    ax.axis(ax.axis()[:2] + (0, 105))
+
+    ax = fig.add_subplot(2, 2, 4)
+    c = cc[3]
     ax.plot(n_threads, kb_throughput, c+'o-', linewidth=3, alpha=0.7)
     ax.set_xlabel('# Worker Threads')
     ax.set_ylabel('KiB/sec*')
