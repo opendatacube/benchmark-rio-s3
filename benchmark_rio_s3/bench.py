@@ -1,4 +1,5 @@
 from matplotlib import pyplot as plt
+from matplotlib import __version__ as mp_version
 import numpy as np
 import hashlib
 from types import SimpleNamespace
@@ -194,7 +195,13 @@ Time:
            xx.t_total).strip()
 
 
-def plot_results(rr, fig=None):
+def plot_results(rr, fig=None, cc=None):
+    if cc is None:
+        if mp_version >= '2.0.0':
+            cc = ('C0', 'C9', 'C4', 'C7')
+        else:
+            cc = ('r', 'g', 'b', 'k')
+
     chunk_size = np.r_[[r.chunk_size for r in rr]]
     t_open = np.r_[[r.t_open for r in rr]]*1000
     t_total = np.r_[[r.t_total for r in rr]]*1000
@@ -202,27 +209,27 @@ def plot_results(rr, fig=None):
 
     fig = fig or plt.figure(figsize=(12, 8))
 
-    ax = fig.add_subplot(2, 2, 1)
-    ax.plot(chunk_size, '.')
+    ax = fig.add_subplot(2, 3, 1)
+    ax.plot(chunk_size, cc[3]+'.')
     ax.set_title('Chunk size (bytes)')
     ax.xaxis.set_visible(False)
 
-    ax = fig.add_subplot(2, 2, 2)
-    ax.hist(chunk_size, 50, linewidth=0, alpha=0.5, color='b')
+    ax = fig.add_subplot(2, 3, 2)
+    ax.hist(chunk_size, 50, linewidth=0, alpha=0.5, color=cc[3])
     ax.yaxis.set_visible(False)
     ax.set_title('Chunk size (bytes)')
 
-    ax = fig.add_subplot(2, 2, 3)
-    plt.scatter(chunk_size, t_total, marker='.', s=3)
+    ax = fig.add_subplot(2, 3, 3)
+    plt.scatter(chunk_size, t_total, marker='.', s=3, color=cc[3])
     ax.set_title('Chunk Size vs Load Time')
 
-    ax = fig.add_subplot(2, 2, 4)
-    add_hist(t_open, 30, n_sigma=1.5, ax=ax, alpha=0.4, color='r', linewidth=0)
-    add_hist(t_read, 30, n_sigma=1.5, ax=ax, alpha=0.4, color='g', linewidth=0)
-    add_hist(t_total, 30, n_sigma=1.5, ax=ax, alpha=0.2, color='b', linewidth=0)
-    ax.legend(['Open', 'Read', 'Total'])
+    ax = fig.add_subplot(2, 1, 2)
+    add_hist(t_open, 30, n_sigma=1.5, ax=ax, alpha=0.4, color=cc[0], linewidth=0, label='Open')
+    add_hist(t_read, 30, n_sigma=1.5, ax=ax, alpha=0.4, color=cc[1], linewidth=0, label='Read')
+    add_hist(t_total, 30, n_sigma=1.5, ax=ax, alpha=0.4, color=cc[2], linewidth=0, label='Total')
     ax.set_title('Time (ms)')
     ax.yaxis.set_visible(False)
+    ax.legend()
 
     fig.tight_layout()
 
@@ -230,7 +237,6 @@ def plot_results(rr, fig=None):
 
 
 def plot_stats_results(data, fig, cc=None):
-    from matplotlib import __version__ as mp_version
 
     if cc is None:
         if mp_version >= '2.0.0':
@@ -329,15 +335,13 @@ def plot_stats_results(data, fig, cc=None):
     return best_idx
 
 
-def plot_comparison(fig, stats, names=None, threshs=None, colors=None, nochunk=False):
-    from matplotlib import __version__ as mp_version
-
+def plot_comparison(fig, stats, names=None, threshs=None, colors=None, alpha=0.3, nochunk=False):
     if names is None:
         names = ['A', 'B']
 
     def linked_hist(data, axs, colors, msg, nb, thresh):
         for d, ax, cc, name in zip(data, axs, colors, names):
-            add_hist(d, nb, ax=ax, thresh=thresh, alpha=0.3, color=cc)
+            add_hist(d, nb, ax=ax, thresh=thresh, alpha=alpha, color=cc)
             ax.legend(['{} ({})'.format(msg, name)])
             ax.axvline(d.mean(), color=cc, linewidth=3, alpha=0.7)
             ax.yaxis.set_visible(False)
@@ -349,8 +353,8 @@ def plot_comparison(fig, stats, names=None, threshs=None, colors=None, nochunk=F
 
     if colors is None:
         if mp_version >= '2.0.0':
-            colors = (('C0', 'C1'),
-                      ('C4', 'C3'),
+            colors = (('C4', 'C3'),
+                      ('C0', 'C1'),
                       ('C9', 'C6'))
         else:
             colors = (('r', 'g'),
