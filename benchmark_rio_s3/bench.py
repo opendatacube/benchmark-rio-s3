@@ -417,6 +417,7 @@ def run_bench_suite(uris_file,
                     mode_prefixes=None,
                     ssl='y',
                     wmore='y',
+                    mode=None,
                     times=1,
                     warmup_passes=1):
     import sys
@@ -428,6 +429,8 @@ def run_bench_suite(uris_file,
 
     bench_app = Path(__file__).resolve().parent.parent/'runbench.py'
     bench_app = bench_app.resolve()
+
+    modes = [mode] if mode is not None else ['rio', 's3tif']
 
     def external_run_bench(urls, nthreads, prefix, npz='n', ssl='y', mode='rio', wmore='y'):
         def opts(**kwargs):
@@ -462,7 +465,7 @@ def run_bench_suite(uris_file,
         external_run_bench(copy_file, 32, prefix='WMP', wmore=wmore, ssl=ssl)
 
     for tc in thread_counts:
-        for mode in ['rio', 's3tif']:
+        for mode in modes:
             prefix = mode_prefixes[mode]
             for _ in range(times):
                 external_run_bench(copy_file, tc, prefix=prefix, mode=mode, ssl=ssl, wmore=wmore)
