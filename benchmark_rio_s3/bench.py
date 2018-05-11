@@ -227,7 +227,7 @@ def plot_results(rr, fig=None, cc=None):
     add_hist(t_open, 30, n_sigma=1.5, ax=ax, alpha=0.4, color=cc[0], linewidth=0, label='Open')
     add_hist(t_read, 30, n_sigma=1.5, ax=ax, alpha=0.4, color=cc[1], linewidth=0, label='Read')
     add_hist(t_total, 30, n_sigma=1.5, ax=ax, alpha=0.4, color=cc[2], linewidth=0, label='Total')
-    ax.set_title('Time (ms)')
+    ax.set_xlabel('Time (ms)')
     ax.yaxis.set_visible(False)
     ax.legend()
 
