@@ -64,12 +64,35 @@ def get_boto3_session(region_name=None):
 
 
 class PReadRIO(object):
+    """This class will process a bunch of files in parallel. You provide a
+    generator of (userdata, url) tuples and a callback that takes opened
+    rasterio file handle and userdata. This class deals with launching threads
+    and re-using them between calls and with setting up `rasterio.Env`
+    appropriate for S3 access. Callback will be called concurrently from many
+    threads, it should do it's own synchronization.
+
+    This class is roughly equivalent to this serial code:
+
+    ```
+    with rasterio.Env(**cfg):
+      for userdata, url in srcs:
+         with rasterio.open(url,'r') as f:
+            cbk(f, userdata)
+    ```
+
+    You should create one instance of this class per app and re-use it as much
+    as practical. There is a significant setup cost, and it increases almost
+    linearly with more worker threads. There is large latency for processing
+    first file in the worker thread, some gdal per-thread setup, so it's
+    important to re-use an instance of this class rather than creating a new
+    one for each request.
+    """
     @staticmethod
-    def process_files(src_stream,
-                      on_file_cbk,
-                      gdal_opts=None,
-                      region_name=None,
-                      timer=None):
+    def _process_file_stream(src_stream,
+                             on_file_cbk,
+                             gdal_opts=None,
+                             region_name=None,
+                             timer=None):
         session = get_boto3_session(region_name)
 
         if timer is not None:
@@ -93,7 +116,7 @@ class PReadRIO(object):
 
         self._nthreads = nthreads
         self._pstream = ParallelStreamProc(nthreads)
-        self._process_files = self._pstream.bind(PReadRIO.process_files)
+        self._process_files = self._pstream.bind(PReadRIO._process_file_stream)
         self._region_name = region_name
 
         self._gdal_opts = dict(VSI_CACHE=True,
@@ -116,7 +139,7 @@ class PReadRIO(object):
 
         return self._pstream.broadcast(_warmup)
 
-    def process_bunch(self, stream, cbk, timer=None):
+    def process(self, stream, cbk, timer=None):
         """
         stream: (userdata, url)...
         cbk:
@@ -180,7 +203,7 @@ class PReadRIO_bench(object):
                                          t0=t0,
                                          chunk_size=chunk_size)
 
-        self._proc.process_bunch(enumerate(urls), extract_block, timer=t_now)
+        self._proc.process(enumerate(urls), extract_block, timer=t_now)
 
         t_total = t_now() - t0
         params = SimpleNamespace(nthreads=self._nthreads,
