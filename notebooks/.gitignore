@@ -1,1 +1,5 @@
-results
+results/
+report_images/
+bench_data/
+_*ipynb
+wkk*ipynb
