@@ -3,8 +3,7 @@ from matplotlib import __version__ as mp_version
 import numpy as np
 import hashlib
 from types import SimpleNamespace
-from . import s3fetch
-from . import pread_rio
+from . import pprio_bench
 
 
 def find_next_available_file(fname_pattern, max_n=1000, start=1):
@@ -445,11 +444,10 @@ def run_main(file_list_file, nthreads,
                pp.nthreads,
                mode))
 
-    procs = {'rio': pread_rio.PReadRIO_bench,
-             's3tif': s3fetch.S3TiffReader}
+    procs = {'rio': pprio_bench.PReadRIO_bench}
 
     if mode not in procs:
-        raise ValueError('Unknown mode: {} only know: rio|s3tif'.format(mode))
+        raise ValueError('Unknown mode: {} only know: rio'.format(mode))
     ProcClass = procs[mode]
 
     rdr = ProcClass(nthreads=pp.nthreads,
@@ -514,7 +512,7 @@ def run_bench_suite(uris_file,
     bench_app = Path(__file__).resolve().parent.parent/'runbench.py'
     bench_app = bench_app.resolve()
 
-    modes = [mode] if mode is not None else ['rio', 's3tif']
+    modes = [mode] if mode is not None else ['rio']
 
     def external_run_bench(urls, nthreads, prefix, npz='n', ssl='y', mode='rio', wmore='y'):
         def opts(**kwargs):
@@ -531,8 +529,7 @@ def run_bench_suite(uris_file,
         thread_counts = [1, 2, 4, 8, 16, 20, 24, 28, 32, 38]
 
     if mode_prefixes is None:
-        mode_prefixes = dict(rio='RIO',
-                             s3tif='S3T')
+        mode_prefixes = dict(rio='RIO')
 
     out_dir = Path(''.join(datetime.now().isoformat().split(':')[:2]))
 
@@ -591,7 +588,7 @@ def main(args=None):
         return run_bench_suite(aa[0], **kw)
 
     if len(aa) != 2:
-        print('Expect at least 2 args: file_list num_threads <prefix=prefix> <mode=rio|s3tif> <ssl=y|n> <npz=y|n>')
+        print('Expect at least 2 args: file_list num_threads <prefix=prefix> <mode=rio> <ssl=y|n> <npz=y|n>')
         return 1
 
     return run_main(*aa, **kw)
