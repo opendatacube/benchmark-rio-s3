@@ -26,7 +26,7 @@ def mk_fname(params, ext='pickle', prefix=None):
     if prefix is None:
         prefix = 'results'
 
-    fmt = ('{prefix}_{p.tile[0]:d}_{p.tile[1]:d}b{p.block[0]:d}_{p.block[1]:d}B{p.band}'
+    fmt = ('{prefix}_{p.block[0]:d}_{p.block[1]:d}B{p.band}'
            '__{p.nthreads:02d}_%03d.{ext}').format(prefix=prefix,
                                                    p=params,
                                                    ext=ext)
@@ -146,7 +146,7 @@ def gen_stats_report(xx, extra_msg=None):
     t_total = np.r_[[r.t_total for r in xx.stats]]*1000
     t_read = t_total - t_open
     hdr = '''
-Tile: ({pp.tile[0]:d},{pp.tile[1]:d})@{pp.block[0]:d}_{pp.block[1]:d}#{pp.band:d}
+Tile: {pp.block[0]:d}_{pp.block[1]:d}#{pp.band:d}
    - blocks  : {pp.block_shape[0]:d}x{pp.block_shape[1]:d}@{pp.dtype}
    - nthreads: {pp.nthreads:d}
 {extra_msg}
@@ -399,33 +399,26 @@ def update_params(pp, **kwargs):
     return pp
 
 
-def string2bool(s):
-    return s.lower() in ['y', 'yes', 't', 'true', '1']
-
-
-def run_main(file_list_file, nthreads,
-             prefix='MXL5',
+def run_main(file_list_file,
+             nthreads,
+             prefix='RIO',
              mode='rio',
-             ssl='no',
-             wmore='y',
-             npz='no'):
+             ssl=False,
+             wmore=True,
+             block=(7, 7),
+             block_shape=(512, 512),
+             dtype='uint16',
+             npz=False):
     import pickle
 
     def without(xx, skip):
         return SimpleNamespace(**{k: v for k, v in xx.__dict__.items() if k not in skip})
 
-    ssl = string2bool(ssl)
-    npz = string2bool(npz)
-    wmore = string2bool(wmore)
-
-    nthreads = int(nthreads)
-
     files = slurp_lines(file_list_file)
 
-    pp = SimpleNamespace(tile=(-9, -18),  # TODO: extract from file name?
-                         block=(8, 2),
-                         block_shape=(256, 256),
-                         dtype='uint8',
+    pp = SimpleNamespace(block=block,
+                         block_shape=block_shape,
+                         dtype=dtype,
                          nthreads=nthreads,
                          mode=mode,
                          ssl=ssl,

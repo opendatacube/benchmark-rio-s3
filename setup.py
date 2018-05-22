@@ -18,4 +18,9 @@ setup(
                       'click',
                       ],
     tests_require=['pytest'],
+    entry_points={
+        'console_scripts': [
+            'bench-rio-s3 = benchmark_rio_s3.app:cli',
+        ],
+    }
 )
