@@ -2,6 +2,7 @@ from matplotlib import pyplot as plt
 from matplotlib import __version__ as mp_version
 import numpy as np
 import hashlib
+import sys
 from types import SimpleNamespace
 from . import pprio_bench
 
@@ -38,8 +39,14 @@ def slurp_lines(fname, *args, **kwargs):
     if len(args) > 0 or len(kwargs) > 0:
         fname = fname.format(*args, **kwargs)
 
-    with open(fname, 'rt') as f:
+    def slurp(f):
         return [s.rstrip() for s in f.readlines()]
+
+    if fname == '-':
+        return slurp(sys.stdin)
+
+    with open(fname, 'rt') as f:
+        return slurp(f)
 
 
 def array_digest(a):
@@ -485,103 +492,3 @@ def run_main(file_list_file,
     print(gen_stats_report(xx))
 
     return 0
-
-
-def run_bench_suite(uris_file,
-                    thread_counts=None,
-                    mode_prefixes=None,
-                    ssl='y',
-                    wmore='y',
-                    mode=None,
-                    times=1,
-                    warmup_passes=1):
-    import sys
-    import os
-    from datetime import datetime
-    from pathlib import Path
-    import shutil
-    from subprocess import check_call
-
-    bench_app = Path(__file__).resolve().parent.parent/'runbench.py'
-    bench_app = bench_app.resolve()
-
-    modes = [mode] if mode is not None else ['rio']
-
-    def external_run_bench(urls, nthreads, prefix, npz='n', ssl='y', mode='rio', wmore='y'):
-        def opts(**kwargs):
-            return ['{}={}'.format(k, v) for k, v in kwargs.items()]
-
-        args = [sys.executable, str(bench_app), urls, str(nthreads)] + opts(npz=npz,
-                                                                            wmore=wmore,
-                                                                            ssl=ssl,
-                                                                            mode=mode,
-                                                                            prefix=prefix)
-        return check_call(args)
-
-    if thread_counts is None:
-        thread_counts = [1, 2, 4, 8, 16, 20, 24, 28, 32, 38]
-
-    if mode_prefixes is None:
-        mode_prefixes = dict(rio='RIO')
-
-    out_dir = Path(''.join(datetime.now().isoformat().split(':')[:2]))
-
-    if out_dir.exists():
-        print('Output directory: {} already exists'.format(out_dir))
-        return 1
-
-    out_dir.mkdir()
-    out_dir = out_dir.resolve()
-
-    copy_file = str(out_dir/'urls.txt')
-    shutil.copy(uris_file, copy_file)
-
-    os.chdir(str(out_dir))
-
-    # warmup bucket
-    for _ in range(warmup_passes):
-        external_run_bench(copy_file, 32, prefix='WMP', wmore=wmore, ssl=ssl)
-
-    for tc in thread_counts:
-        for mode in modes:
-            prefix = mode_prefixes[mode]
-            for _ in range(times):
-                external_run_bench(copy_file, tc, prefix=prefix, mode=mode, ssl=ssl, wmore=wmore)
-
-    print('Results saved to: "{}"'.format(out_dir))
-    return 0
-
-
-def main(args=None):
-    import sys
-
-    if args is None:
-        args = sys.argv[1:]
-
-    aa = []
-    kw = {}
-
-    for a in args:
-        kv = a.split('=')
-        if len(kv) == 1:
-            aa.append(a)
-        elif len(kv) == 2:
-            k, v = kv
-            kw[k] = v
-
-    if len(aa) == 1:
-        for k in ['times', 'warmup_passes']:
-            if k in kw:
-                kw[k] = int(kw[k])
-
-        if 'thread_counts' in kw:
-            kw['thread_counts'] = [int(x) for x in kw['thread_counts'].split(',')]
-
-        print('Run test suite with file: ' + aa[0])
-        return run_bench_suite(aa[0], **kw)
-
-    if len(aa) != 2:
-        print('Expect at least 2 args: file_list num_threads <prefix=prefix> <mode=rio> <ssl=y|n> <npz=y|n>')
-        return 1
-
-    return run_main(*aa, **kw)
