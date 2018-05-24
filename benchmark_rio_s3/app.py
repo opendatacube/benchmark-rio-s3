@@ -37,7 +37,7 @@ def make_click_parser(func, error_msg):
 
 
 click_parse_tuple = make_click_parser(parse_tuple, 'Expect comma separated list of integers')
-click_parse_xy = make_click_parser(lambda s: parse_tuple(s, 2), 'Expect x,y')
+click_parse_rc = make_click_parser(lambda s: parse_tuple(s, 2), 'Expect row,col')
 click_parse_shape = make_click_parser(parse_shape, 'Expect WxH')
 
 cli = click.Group(name='bench-rio-s3', help="Bunch of tools for benchmarking rasterio performance in the cloud")
@@ -45,7 +45,7 @@ cli = click.Group(name='bench-rio-s3', help="Bunch of tools for benchmarking ras
 
 @cli.command(name='run-one')
 @click.option('--prefix', type=str, default='rio', help='Prefix for results file')
-@click.option('--block', callback=click_parse_xy,
+@click.option('--block', callback=click_parse_rc,
               default='7,7',
               help='Block to read, default: "7,7"')
 @click.option('--dtype', default='uint16', help='Pixel type of the source images, default: uint16')
@@ -105,7 +105,7 @@ def run(prefix, block, dtype, block_shape,
 
 
 @cli.command(name='run')
-@click.option('--block', callback=click_parse_xy,
+@click.option('--block', callback=click_parse_rc,
               default=None,
               help='Block to read, default: "center" block')
 @click.option('--warmup-more/--no-warmup-more',
