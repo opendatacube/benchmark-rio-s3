@@ -65,7 +65,7 @@ def run(prefix, block, dtype, block_shape,
         warmup_more, save_pixel_data,
         threads,
         url_file):
-    """Run benchmark
+    """Run individual benchmark
 
     You will need to supply some information about test data
 
@@ -75,7 +75,10 @@ def run(prefix, block, dtype, block_shape,
     block       -- which block to read, defaults to 7,7 which is roughly the
                    middle of a landsat tile
 
-    You can use `rio info <url>` to find those
+    \b
+    You can use `rio info <url>` to find those. Or you can run
+     >   bench-rio-s3 run-suite --skip-bucket-warmup --threads <nthreads> <url-file>
+    to auto-find these parameters and use center block.
 
     \b
     URL_FILE    -- File containing urls to fetch, these should be unique, all
@@ -113,14 +116,34 @@ def run(prefix, block, dtype, block_shape,
               help='Number of processing threads to run benchmark with, comma-separated list of integers, e.g. 1,2,4')
 @click.option('--times', type=int, default=1,
               help='How many times to run benchmark for each thread count setting')
+@click.option('--skip-bucket-warmup',
+              is_flag=True, default=False,
+              help="Don't run bucket warmup before running benchmarks")
 @click.argument('url_file')
-def run_suite(block, warmup_more, threads, times, url_file):
+def run_suite(block, warmup_more, threads, times, skip_bucket_warmup, url_file):
     """Run benchmark suite
 
-    Run benchmarks with different settings
+    You need to supply a list of urls to use for testing. These should be
+    unique (no repeated urls allowed). All files should have the same tiling
+    regime and pixel type. List should be at least as long as maximum number of
+    threads, but 1k+ is probably best.
 
-    Note that this will launch a new process for every run to make sure that
-    various once-off costs can be measured.
+    \b
+    example:
+    s3://landsat-pds/c1/L8/106/070/LC08_L1TP_106070_20180417_20180501_01_T1/LC08_L1TP_106070_20180417_20180501_01_T1_B1.TIF
+    s3://landsat-pds/c1/L8/106/070/LC08_L1TP_106070_20180503_20180516_01_T1/LC08_L1TP_106070_20180503_20180516_01_T1_B1.TIF
+
+    You can use `bench-rio-s3 ls s3://mybucket/path/` to generated this file
+
+    This program will then do the following:
+
+    \b
+    1. Figure out tif parameters dtype, block_shape using first file in the list
+    2. Create folder for benchmark results
+    3. Warmup bucket by reading all the files with many threads once
+    4. Run benchmark with different number of threads
+       - New process is launched for every run
+
     """
     from pathlib import Path
     from datetime import datetime
@@ -141,6 +164,8 @@ def run_suite(block, warmup_more, threads, times, url_file):
 
         with open('urls.txt', 'wt') as f:
             f.write('\n'.join(urls) + '\n')
+
+        return out_dir
 
     def external_run_bench(*args):
         from subprocess import check_call
@@ -177,15 +202,21 @@ def run_suite(block, warmup_more, threads, times, url_file):
     if block is None:
         block = tuple(n//2 for n in finfo['shape_in_blocks'])
 
-    setup_output_dir(urls)
-    # TODO: bucket warmup
+    out_dir = setup_output_dir(urls)
+
+    if not skip_bucket_warmup:
+        args = build_args(finfo, block, 32, prefix='WRM')
+        click.echo('Running with args: "{}"'.format(' '.join(args)))
+        for _ in range(1):
+            external_run_bench(*args)
 
     for nth in threads:
-        args = build_args(finfo, block, nth)
+        args = build_args(finfo, block, nth, prefix='RIO')
         click.echo('Running with args: "{}"'.format(' '.join(args)))
         for _ in range(times):
             external_run_bench(*args)
 
+    click.echo('Completed, results saved in:\n   {}'.format(out_dir.name))
     sys.exit(0)
 
 
