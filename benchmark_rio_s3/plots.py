@@ -90,7 +90,7 @@ def plot_stats_results(data, fig, cc=None):
     else:
         fps_median = None
 
-    kb_throughput = total_b/total_t/(1 << 10)
+    mb_throughput = (total_b/total_t)/(1 << 20)
     wkpt = files_per_second/n_threads
     wkpt = 100*wkpt/wkpt.max()
 
@@ -144,9 +144,9 @@ def plot_stats_results(data, fig, cc=None):
 
     ax = fig.add_subplot(2, 2, 4)
     c = cc[3]
-    ax.plot(n_threads, kb_throughput, c+'o-', linewidth=3, alpha=0.7)
+    ax.plot(n_threads, mb_throughput, c+'o-', linewidth=3, alpha=0.7)
     ax.set_xlabel('# Worker Threads')
-    ax.set_ylabel('KiB/sec*')
+    ax.set_ylabel('MiB/sec*')
     ax.xaxis.set_ticks(x_ticks)
 
     ax.annotate('* excluding headers',
@@ -154,10 +154,10 @@ def plot_stats_results(data, fig, cc=None):
                 xytext=(0.05, 0.9),
                 textcoords='axes fraction')
 
-    ax.annotate('{kbps:.0f} KiB/s using {s.params.nthreads:d} threads'.format(
-        kbps=kb_throughput[best_idx],
+    ax.annotate('{mbps:.0f} MiB/s using {s.params.nthreads:d} threads'.format(
+        mbps=mb_throughput[best_idx],
         s=data[best_idx]),
-                xy=(n_threads[best_idx], kb_throughput[best_idx]),
+                xy=(n_threads[best_idx], mb_throughput[best_idx]),
                 xytext=(0.3, 0.1),
                 textcoords='axes fraction',
                 arrowprops=dict(facecolor=c,
