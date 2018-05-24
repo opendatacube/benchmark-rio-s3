@@ -43,7 +43,7 @@ click_parse_shape = make_click_parser(parse_shape, 'Expect WxH')
 cli = click.Group(name='bench-rio-s3', help="Bunch of tools for benchmarking rasterio performance in the cloud")
 
 
-@cli.command(name='run')
+@cli.command(name='run-one')
 @click.option('--prefix', type=str, default='rio', help='Prefix for results file')
 @click.option('--block', callback=click_parse_xy,
               default='7,7',
@@ -65,7 +65,7 @@ def run(prefix, block, dtype, block_shape,
         warmup_more, save_pixel_data,
         threads,
         url_file):
-    """Run individual benchmark
+    """Run individual benchmark.
 
     You will need to supply some information about test data
 
@@ -104,7 +104,7 @@ def run(prefix, block, dtype, block_shape,
     sys.exit(0)
 
 
-@cli.command(name='run-suite')
+@cli.command(name='run')
 @click.option('--block', callback=click_parse_xy,
               default=None,
               help='Block to read, default: "center" block')
@@ -121,7 +121,7 @@ def run(prefix, block, dtype, block_shape,
               help="Don't run bucket warmup before running benchmarks")
 @click.argument('url_file')
 def run_suite(block, warmup_more, threads, times, skip_bucket_warmup, url_file):
-    """Run benchmark suite
+    """Run benchmark suite.
 
     You need to supply a list of urls to use for testing. These should be
     unique (no repeated urls allowed). All files should have the same tiling
@@ -169,7 +169,7 @@ def run_suite(block, warmup_more, threads, times, skip_bucket_warmup, url_file):
 
     def external_run_bench(*args):
         from subprocess import check_call
-        args = [sys.executable, sys.argv[0], 'run', *args]
+        args = [sys.executable, sys.argv[0], 'run-one', *args]
         return check_call(args)
 
     def fetch_file_info(fname):
@@ -227,7 +227,7 @@ def run_suite(block, warmup_more, threads, times, skip_bucket_warmup, url_file):
               help='Supply filter (regular expression)')
 @click.argument('prefix')
 def run_s3_ls(filter, regex, prefix):
-    """List files in some s3 bucket
+    """List files in some s3 bucket.
 
     \b
     Example: bench-rio-s3 ls --filter '*_B1.TIF' s3://landsat-pds/c1/L8/106/070/
