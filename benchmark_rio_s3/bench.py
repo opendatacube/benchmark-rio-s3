@@ -83,13 +83,10 @@ def unpack_stats(xx, ms=False):
     t_total = np.r_[[r.t_total for r in xx.stats]]*t_scaler
     t_read = t_total - t_open
 
-    if hasattr(xx.stats[0], 't0'):
-        t0 = np.r_[[r.t0 for r in xx.stats]]*t_scaler
-        t0 -= t0.min()
-        t_end = t0 + t_total
-        fps_t, fps = files_per_second(t_end/t_scaler)
-    else:
-        t0, t_end, fps, fps_t = [None]*4
+    t0 = np.r_[[r.t0 for r in xx.stats]]*t_scaler
+    t0 -= t0.min()
+    t_end = t0 + t_total
+    fps_t, fps = files_per_second(t_end/t_scaler)
 
     return SimpleNamespace(chunk_size=chunk_size,
                            nthreads=xx.params.nthreads,

@@ -6,6 +6,7 @@ setup(
     license='Apache License 2.0',
     url='https://github.com/Kirill888/benchmark-rio-s3',
     packages=find_packages(),
+    include_package_data=True,
     author='Kirill Kouzoubov',
     author_email='kirill.kouzoubov@ga.gov.au',
     description='Tools for benchmarking multi-threaded performance of Rasterio/GDAL when accessing files on S3',
