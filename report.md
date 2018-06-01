@@ -19,10 +19,10 @@
 ## Introduction
 
 There is a common trend across many industries and government agencies to move significant
-portions of their IT infrastructure and data into "cloud". Rather than maintaining complex
+portions of their IT infrastructure and data to the "cloud". Rather than maintaining complex
 server farms in-house, expertise of public cloud providers like Amazon Web Services,
 Google Cloud, Microsoft Azure, and many others is leveraged to deliver more robust, secure
-and hopefully cost efficient solutions.
+and hopefully cost effective solutions.
 
 AWS and S3 data storage solutions are particularly popular. Entities operating in GIS
 (Geographic Information Systems) domain, with their massive data sets, are particularly
@@ -36,30 +36,29 @@ these archives are growing every day.
 ### Amazon S3 and Data Access
 
 Amazon S3 is the most cost effective way to store "active" data in AWS, for archival needs
-there is [Glacier](https://aws.amazon.com/glacier/). It is an "object store", but it can
-superficially appear as a file system, to which access is performed via authenticated
+there is [Glacier](https://aws.amazon.com/glacier/). S3 is an "object store", but it can
+be superficially viewed as a file system, to which access is performed via authenticated
 HTTP. The details of authentication are quite complex, but also not very important, as
 libraries deal with that aspect of things. Authentication is used for access control, or
 in case of public data sets with "user pays" policy for billing the user for access.
-Landsat 8 data can be accessed without any credentials.
+Landsat 8 data can be accessed without any credentials, and Sentinel is switching to user
+pays model.
 
 [GDAL](http://gdal.org) Geospatial Data Abstraction Library has supported working with
 HTTP resources for a while now, and S3 authentication support has been added more
 recently. There is constant progress in improving performance and usability when working
-with network assets.
+with network assets. Just because some file is on a remote server, it doesn't mean that
+the entire file needs to be downloaded before accessing pixel data. HTTP supports
+requesting partial content of a file, S3 understand that as well.
 
-Just because some file is on a remote server, it doesn't mean that the entire file needs
-to be downloaded before accessing pixel data. HTTP supports requesting partial content of
-a file, S3 understand that as well.
-
-A common format in GIS is GeoTIFF. GeoTIFF files can be internally tiled, so you can
-access a portion of a raster without ever reading the rest of the file. GDAL can do
-exactly that, it will first fetch enough data to parse the header data, then will fetch
+A common data storage format in GIS is GeoTIFF. GeoTIFF files can be internally tiled, so
+you can access a portion of a raster without ever reading the rest of the file. GDAL can
+do exactly that, it will first fetch enough data to parse the header data, then will fetch
 "just enough" compressed pixel data to return raster data for a region of interest. TIFF
 being an extremely flexible format can be hard to work with over HTTP,
 so [Cloud Optimized GeoTIFF](https://trac.osgeo.org/gdal/wiki/CloudOptimizedGeoTIFF)
 profile has been developed to constraint how TIFF files are constructed to enable best
-possible efficiency for access over HTTP.
+possible efficiency of access over HTTP.
 
 
 ### Rasterio
@@ -102,11 +101,12 @@ If you omit it, and default region name is not configured or configured to the w
 for a given bucket, you might end up with performance penalty due to HTTP redirects,
 things will probably still work so you might not notice immediately.
 
-For best performance, environment setup should happen once per worker thread, each worker
-thread will need their own. Re-using environment across many file reads is particularly
-important if you are using AIM for your credentials in the cloud (and you should for
-security reasons), as obtaining credentials in that case can take some time, and there is
-no guarantee that they will be cached somewhere after environment is teared down.
+For the best performance, environment setup should happen once per worker thread, each
+worker thread will need their own. Re-using environment across many file reads is
+particularly important if you are using AIM for your credentials in the cloud (and you
+should for security reasons), as obtaining credentials in that case can take some time,
+and there is no guarantee that they will be cached somewhere after environment is teared
+down.
 
 
 ## Benchmark
@@ -122,7 +122,7 @@ report.
 ### Workload Description
 
 Current version of benchmark concentrates on a particularly pathological use case for S3
-access: reading small region of pixels from a large number of files. A kind of pixel
+access: reading small region of pixels from a large number of files, a kind of pixel
 gather operation. Given a large number (1K+) of similarly structured COGs (same pixel
 type, same compression settings, same tiling regime), read one internal tile from each
 file and return a 3-d array of these tiles stacked on top of each other. This type of
@@ -151,26 +151,6 @@ s3://landsat-pds/c1/L8/106/071/LC08_L1TP_106071_20180519_20180519_01_RT/LC08_L1T
 Test ran in the same region as the data `us-west-2` (Oregon) using `m5.xlarge` instance
 type. Test covers running with 1 to 56 concurrent threads, test repeated 3 times for every
 configuration and the best result chosen for each, for comparison across configurations.
-
-
-### Peak Throughput
-
-Rather than using time to completion we prefer "peak throughput" for comparing different
-runs. There is a significant variance in latency of individual reads due to external
-forces we can not control, large latency for individual file at the start of the
-experiment will be hidden (won't affect total time much), but large latency for a file
-towards the end of the experiment will potentially increase experiment time by a second or
-two. This is not a problem if total experiment time is much larger than maximum latency of
-individual read, but say 1 minute of reads with 40 worker threads will translate to half
-an hour long single threaded test which is not very practical.
-
-We compute throughput using the following strategy:
-
-Every time a new file is finished processing (in any of the worker threads) we record time
-from the start of the experiment and the number of files processed including this file.
-Throughput is then `n_files/elapsed_time`, we plot this as a function of files completed.
-We then take the maximum value observed during the experiment as a main metric of
-performance.
 
 
 ### Results and Analysis
@@ -206,7 +186,16 @@ maximum latency was just over 1 second. Average latency per file was 72.3ms. Whe
 just one tile from a file, cost of file open dominates, 60% of the time is spent waiting
 for open to complete, and 40% to read the data.
 
-Comparison fastest time vs single thread:
+![Single Thread Stats](./report_images/single-thread-in-depth.png)
+
+Graphs above show distribution of open/read/total latency, and distribution of chunk sizes
+(compressed size of tiles read). There is very little correlation between chunk size and
+time to read, for these sizes (250-450 Kb) and when reading from within the same data
+center, time to read is dominated by Time To First Byte delay, once data is ready it is
+delivered quickly.
+
+The fastest run we observed used 49 threads and completed in 3.39 seconds, a
+significant improvement over single threaded performance.
 
 ```
 ---------------------------------------------------------------------------------------------------
@@ -233,30 +222,65 @@ Time:                                            | Time:
 ---------------------------------------------------------------------------------------------------
 ```
 
-TK: graphs for latency distribution
-TK: latency hiding graphs, discussion
-TK: throughput as a function of number of workers graph, discussion
+It should be noted that we intentionally exclude "warmup" time from the results above.
+Section later on explains it in more detail, so 3.39 seconds is not from cold start to
+results saved to local disk.
 
+![Comparing Single Threaded vs Lowest Overall Latency](./report_images/comparison.png)
+
+From graph above we can see that individual latency per file access increases as we use
+more concurrent threads. This is probably due to both local interference as well as the
+remote side being more busy with more concurrent requests. This is expected, and since
+degradation is relatively minor overall throughput increases significantly with more
+threads.
+
+![Latency Hiding](./report_images/latency-hiding.png)
+
+TK: latency hiding graphs discussion
+
+### Peak Throughput
+
+Rather than using time to completion we prefer "peak throughput" for comparing different
+runs. There is a significant variance in latency of individual reads due to external
+forces we can not control, large latency for individual file at the start of the
+experiment will be hidden (won't affect total time much), but large latency for a file
+towards the end of the experiment will potentially increase experiment time by a second or
+two. This is not a problem if total experiment time is much larger than maximum latency of
+individual read, but say 1 minute of reads with 40 worker threads will translate to half
+an hour long single threaded test which is not very practical.
+
+We compute throughput using the following strategy:
+
+Every time a new file is finished processing (in any of the worker threads) we record time
+from the start of the experiment and the number of files processed including this file.
+Throughput is then `n_files/elapsed_time`, we plot this as a function of files completed.
+We then take the maximum value observed during the experiment as a main metric of
+performance.
+
+![Throughput Graph](./report_images/fps.png)
+
+TK: summary graph for threads
 
 ### Warmup Costs
 
-Having more threads clearly helps to increase throughput, so if you need to process an
-almost infinite set of files throw as many resources at the task that your memory
-constraints allow. Launching all these threads takes some time, also GDAL needs to perform
-some kind of per thread initialization. What we observe is that reading the very first
-file in a worker thread consistently takes significantly longer than "normal" for the rest
-of files. That in itself is not surprising: establishing HTTP connection, creating
-thread-local structures and other kinds of housekeeping tasks are expected. What's
-interesting is that time to process first file consistently increases the more concurrent
-threads are launched, suggesting that either some internal GDAL synchronization is taking
-place or just CPU/RAM congestion is particularly severe for that stage of processing.
+Having more threads clearly helps to increase throughput, so if you need to process large
+set of files throw as many resources at the task that your memory constraints allow.
+Launching all these threads takes some time, also GDAL needs to perform some kind of per
+thread initialization. What we observe is that reading the very first file in a worker
+thread consistently takes significantly longer than "normal" for the rest of files. That
+in itself is not surprising: establishing HTTP connection, creating thread-local
+structures and other kinds of housekeeping tasks are expected. What's interesting is that
+time to process first file consistently increases the more concurrent threads are
+launched, suggesting that either some internal GDAL synchronization is taking place or
+just CPU/RAM congestion is particularly severe for that stage of processing.
+
+![Warmup Costs](./report_images/warmup.svg)
 
 Ideally your software would create worker threads once on startup and keep re-using them
 going forward, amortizing the spin up costs. For batch jobs that might not be possible so
 you would need to balance start up latency vs higher throughput to minimize total
 processing time.
 
-TK: warmup chart
 
 ## Conclusion
 
