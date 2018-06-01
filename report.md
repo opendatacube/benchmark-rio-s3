@@ -49,7 +49,7 @@ HTTP resources for a while now, and S3 authentication support has been added mor
 recently. There is constant progress in improving performance and usability when working
 with network assets. Just because some file is on a remote server, it doesn't mean that
 the entire file needs to be downloaded before accessing pixel data. HTTP supports
-requesting partial content of a file, S3 understand that as well.
+requesting partial content of a file, S3 understands that as well.
 
 A common data storage format in GIS is GeoTIFF. GeoTIFF files can be internally tiled, so
 you can access a portion of a raster without ever reading the rest of the file. GDAL can
@@ -79,10 +79,11 @@ If you configured your AWS credentials either with `aws` command line or by usin
 Identity Management) roles in the cloud, code above will just work. To get best
 performance out of it we will need to do more work though. There is a number of things we
 need to configure inside GDAL, the most important one is to tell GDAL not to look for
-side-car files, as this takes a lot of HTTP requests and takes a long time, and Cloud
+side-car files, as this makes a lot of HTTP requests and takes a long time, and Cloud
 Optimized GeoTIFFs should not need side-car files. This is achieved with
 `GDAL_DISABLE_READDIR_ON_OPEN=YES` option, we will also set
-`CPL_VSIL_CURL_ALLOWED_EXTENSIONS=tif` and `VSI_CACHE=YES`.
+`CPL_VSIL_CURL_ALLOWED_EXTENSIONS=tif` and `VSI_CACHE=YES`, for more details about various
+options see [GDAL wiki](https://trac.osgeo.org/gdal/wiki/ConfigOptions)
 
 With `rasterio` we use `raterio.Env` construct to change default GDAL settings:
 
@@ -234,20 +235,19 @@ remote side being more busy with more concurrent requests. This is expected, and
 degradation is relatively minor overall throughput increases significantly with more
 threads.
 
-![Latency Hiding](./report_images/latency-hiding.png)
-
-TK: latency hiding graphs discussion
 
 ### Peak Throughput
 
 Rather than using time to completion we prefer "peak throughput" for comparing different
 runs. There is a significant variance in latency of individual reads due to external
-forces we can not control, large latency for individual file at the start of the
+forces we can not control, large latency for individual file read at the start of the
 experiment will be hidden (won't affect total time much), but large latency for a file
 towards the end of the experiment will potentially increase experiment time by a second or
 two. This is not a problem if total experiment time is much larger than maximum latency of
 individual read, but say 1 minute of reads with 40 worker threads will translate to half
 an hour long single threaded test which is not very practical.
+
+![Latency Hiding](./report_images/latency-hiding.png)
 
 We compute throughput using the following strategy:
 
