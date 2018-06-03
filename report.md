@@ -1,19 +1,11 @@
 # Understanding GDAL performance in the cloud
 
+## Abstract
 
-- Intro and Motivation
-  - why cloud
-  - S3/HTTP/GDAL
-
-- Rasterio Settings
-
-- Benchmark
-  - Workload description
-  - Choice of metric: peak throughput in file per second
-  - Results graphs + analysis
-  - Warmup costs discussion
-
-- Conclusion
+In this report we look in detail at performance of reading Cloud Optimized
+GeoTIFFs stored in Amazon's S3 object store service. In particular we analyze
+behavior of Pixel Gather operation: reading a small region of interest from a
+large number of files.
 
 
 ## Introduction
