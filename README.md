@@ -92,4 +92,20 @@ way to 32.
 
 ## Visualising results
 
-TODO
+To generate graphs from collected statistics you will need `matplotlib` and
+`nbconvert` installed on your system. These will be installed if specify
+`[report]` extra when installing `benchmark-rio-s3`
+
+```
+sudo pip3 install git+https://github.com/Kirill888/benchmark-rio-s3.git#egg=benchmark-rio-s3[report]
+```
+
+To visualize collected data
+
+1. Change into a directory containing benchmark `*.pickle` files
+2. Run `bench-rio-s3 report`
+
+This should produce
+
+- `report.html`
+- Directory named `report_images` with PNG and SVG versions of graphs

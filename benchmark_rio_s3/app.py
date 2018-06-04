@@ -248,9 +248,64 @@ def run_s3_ls(filter, regex, prefix):
     sys.exit(0)
 
 
+@cli.command(name='report')
+@click.argument('directory', default='.')
+def gen_report(directory):
+    """Generate report figures.
+
+    Given a directory with results execute report generating notebook on
+    collected benchmark data. You have to have `jupyter` and `matplotlib`
+    installed.
+    """
+    from subprocess import check_call, CalledProcessError
+    from pathlib import Path
+    import shutil
+    import os
+
+    directory = Path(directory).absolute()
+
+    try:
+        os.chdir(str(directory))
+    except FileNotFoundError:
+        click.echo('No such directory: {}'.format(directory))
+        sys.exit(1)
+    except PermissionError:
+        click.echo("Don't have permission to work in: {}".format(directory))
+        sys.exit(1)
+
+    os.environ['PWD'] = str(directory)
+
+    nb_convert = shutil.which('jupyter-nbconvert')
+    base = Path(__file__).absolute().parent
+    nb_path = base/"nb"/"gen-report-figures.ipynb"
+    tp_path = base/"nb"/"nocode.tpl"
+
+    if nb_convert is None:
+        click.echo("Failed to find `jupyter-nbconvert` need it to run report notebook.", err=True)
+        sys.exit(2)
+
+    args = [nb_convert,
+            '--execute',
+            '--to=html',
+            '--NbConvertApp.output_base=report',
+            '--output-dir=.',
+            '--template={}'.format(tp_path),
+            str(nb_path)]
+
+    click.echo('Working in: {}'.format(directory))
+
+    try:
+        check_call(args)
+    except FileNotFoundError:
+        click.echo("Failed to find `jupyter-nbconvert` need it to run report notebook.", err=True)
+        sys.exit(2)
+    except CalledProcessError:
+        sys.exit(3)
+
 #######################################
 # unit tests below
 #######################################
+
 
 def test_parsers():
     assert parse_shape('512') == (512, 512)

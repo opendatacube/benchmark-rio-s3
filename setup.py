@@ -19,6 +19,9 @@ setup(
                       'click',
                       ],
     tests_require=['pytest'],
+    extras_require=dict(
+        report=['nbconvert', 'matplotlib']
+    ),
     entry_points={
         'console_scripts': [
             'bench-rio-s3 = benchmark_rio_s3.app:cli',
