@@ -38,7 +38,7 @@ rio info s3://landsat-pds/c1/L8/106/070/LC08_L1TP_106070_20180417_20180501_01_T1
 On Ubuntu
 
 ```
-sudo pip3 install git+https://github.com/Kirill888/benchmark-rio-s3.git
+sudo pip3 install git+https://github.com/opendatacube/benchmark-rio-s3.git
 ```
 
 Then to check everything went well
@@ -97,7 +97,7 @@ To generate graphs from collected statistics you will need `matplotlib` and
 `[report]` extra when installing `benchmark-rio-s3`
 
 ```
-sudo pip3 install git+https://github.com/Kirill888/benchmark-rio-s3.git#egg=benchmark-rio-s3[report]
+sudo pip3 install git+https://github.com/opendatacube/benchmark-rio-s3.git#egg=benchmark-rio-s3[report]
 ```
 
 To visualize collected data
