@@ -4,7 +4,7 @@ setup(
     name='benchmark-rio-s3',
     version='0.1',
     license='Apache License 2.0',
-    url='https://github.com/Kirill888/benchmark-rio-s3',
+    url='https://github.com/opendatacube/benchmark-rio-s3',
     packages=find_packages(),
     include_package_data=True,
     author='Kirill Kouzoubov',

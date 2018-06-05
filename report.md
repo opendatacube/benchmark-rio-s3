@@ -106,7 +106,7 @@ down. (TK reword)
 So what performance should we expect when working with COGs from S3? Can we use more
 threads to speed things up? How many threads? We ran some benchmarks to find out.
 
-Benchmark [code](https://github.com/Kirill888/benchmark-rio-s3) is available online for
+Benchmark [code](https://github.com/opendatacube/benchmark-rio-s3) is available online for
 you to use and extend for your needs. Results for the Landsat 8 data is presented in this
 report.
 
