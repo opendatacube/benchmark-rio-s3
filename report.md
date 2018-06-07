@@ -93,12 +93,13 @@ If you omit it, and the default region name is not configured or configured to t
 for a given bucket, you might end up with a performance penalty due to HTTP redirects.
 Things will probably still work so you might not notice it immediately.
 
-For the best performance, environment setup should happen once per worker thread, each
-worker thread will need their own. Re-using environment across many file reads is
-particularly important if you are using AIM for your credentials in the cloud (which you
-should for security reasons), as obtaining credentials in that case can take some time,
-and there is no guarantee that they will be cached somewhere once the environment is teared
-down. (TK reword)
+Every worker thread needs to setup `rasterio.Env`, environment is not shared
+across threads. For best performance this setup should happen once for the life
+of a thread, not for every file read. Re-using environment across many file
+reads is particularly important if you are using AIM for credentials in the
+cloud (which you should for security reasons). Obtaining credentials in that
+case can take some time, and there is no guarantee that they will be cached
+somewhere once the environment is teared down.
 
 
 ## Benchmark
@@ -240,6 +241,10 @@ long single threaded test, which is not very practical.
 
 ![Latency Hiding](./report_images/latency-hiding.png)
 
+Graph above shows start/finish times for the first 40 files being processed with
+1,2,3 and 49 threads. Steeper slope means higher throughput. Notice couple of
+longer bars on the red (c3) line. Latency can vary quite a bit.
+
 We compute throughput using the following strategy:
 
 Every time a new file is finished processing (in any of the worker threads) we record the time
@@ -275,4 +280,20 @@ processing time.
 
 ## Conclusion
 
-TK: summary, reference DEA, ODC 
+The cost of data access is dominated by TTFB from S3. Typical single threaded
+throughput is just 14 tiles per second, when reading single tile from each file.
+Having many concurrent requests is essential for decent performance. Scaling
+with more threads works very well, there is little CPU congestion as most of the
+time threads are idle, waiting for network data to arrive. Best throughput we
+were able to achieve was in the 370-380 tile-files per second range, using 40-50
+threads.
+
+Large number of threads means large memory footprint, implies more expensive
+instances. Using async would be ideal, unfortunately current libraries use
+blocking design, one can not request many file opens/reads from the same thread.
+
+These findings highlight the need for ODC to move away from one time slice at a
+time data loading regime we currently implement. Data loading plugins need to
+operate on the entirety of the query result. Current approach of single variable
+single time slice load can not deliver reasonable performance when using high
+latency data stores like S3.
