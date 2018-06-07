@@ -1,7 +1,7 @@
 from matplotlib import pyplot as plt
 from matplotlib import __version__ as mp_version
 import numpy as np
-from .bench import unpack_stats
+from .reports import unpack_stats
 
 
 def link_x_axis(*axs, start_from_zero=None):
