@@ -77,64 +77,41 @@ def plot_stats_results(data, fig, cc=None):
         else:
             cc = ['b', 'g', 'r', 'm']
 
-    n_threads, total_t, total_b, total_f = np.r_[[(s.params.nthreads,
-                                                   s.t_total,
-                                                   sum([x.chunk_size for x in s.stats]),
-                                                   len(s.stats))
-                                                  for s in data]].T
-    files_per_second = total_f/total_t
+    dd = [data[i] for i in sorted(data.keys())]
 
-    sts = [unpack_stats(d) for d in data]
-    if False and sts[0].fps is not None:
-        fps_median = np.array([np.median(st.fps) for st in sts])
-    else:
-        fps_median = None
-
+    n_threads, total_t, total_b, total_f, files_per_second = np.r_[[(s.nthreads,
+                                                                     s.duration,
+                                                                     s.chunk_size.sum(),
+                                                                     s.chunk_size.shape[0],
+                                                                     s.throughput) for s in dd]].T
+    n_threads = n_threads.astype('uint32')
     mb_throughput = (total_b/total_t)/(1 << 20)
     wkpt = files_per_second/n_threads
     wkpt = 100*wkpt/wkpt.max()
 
     best_idx = total_t.argmin()
+    sb = data[n_threads[best_idx]]
 
     x_ticks = np.array([1] + list(range(4, int(n_threads.max()), 4))
                        + [n_threads.max()])
 
-    ax = fig.add_subplot(2, 2, 1)
-    c = cc[0]
-    ax.plot(n_threads, total_t, c+'o-', linewidth=3, alpha=0.7)
-    ax.set_xlabel('# Worker Threads')
-    ax.set_ylabel('Time (secs)')
-    ax.xaxis.set_ticks(x_ticks)
-
-    ax.annotate('{s.t_total:.3f} secs using {s.params.nthreads:d} threads'.format(s=data[best_idx]),
-                xy=(n_threads[best_idx], total_t[best_idx]),
-                xytext=(0.3, 0.9),
-                textcoords='axes fraction',
-                arrowprops=dict(facecolor=c,
-                                alpha=0.4,
-                                shrink=0.05))
-
-    ax = fig.add_subplot(2, 2, 2)
+    ax = fig.add_subplot(1, 3, 1)
     c = cc[1]
     ax.plot(n_threads, files_per_second, c+'s-', linewidth=3, alpha=0.7)
-    if fps_median is not None:
-        ax.plot(n_threads, fps_median, cc[0]+'o-', linewidth=3, alpha=0.7)
 
     ax.set_xlabel('# Worker Threads')
     ax.set_ylabel('Files/sec')
     ax.xaxis.set_ticks(x_ticks)
 
-    ax.annotate('{frate:.0f} files/s using {s.params.nthreads:d} threads'.format(
-        frate=files_per_second[best_idx],
-        s=data[best_idx]),
-                xy=(n_threads[best_idx], files_per_second[best_idx]),
+    ax.annotate('{frate:.0f} files/s using {s.nthreads:d} threads'.format(frate=sb.throughput, s=sb),
+                xy=(sb.nthreads, sb.throughput),
                 xytext=(0.3, 0.1),
                 textcoords='axes fraction',
                 arrowprops=dict(facecolor=c,
                                 alpha=0.4,
                                 shrink=0.05))
 
-    ax = fig.add_subplot(2, 2, 3)
+    ax = fig.add_subplot(1, 3, 2)
     c = cc[2]
     ax.plot(n_threads, wkpt, c+'o-', linewidth=3, alpha=0.7)
     ax.xaxis.set_ticks(x_ticks)
@@ -142,7 +119,7 @@ def plot_stats_results(data, fig, cc=None):
     ax.set_ylabel('Efficiency per thread %')
     ax.axis(ax.axis()[:2] + (0, 105))
 
-    ax = fig.add_subplot(2, 2, 4)
+    ax = fig.add_subplot(1, 3, 3)
     c = cc[3]
     ax.plot(n_threads, mb_throughput, c+'o-', linewidth=3, alpha=0.7)
     ax.set_xlabel('# Worker Threads')
@@ -154,10 +131,8 @@ def plot_stats_results(data, fig, cc=None):
                 xytext=(0.05, 0.9),
                 textcoords='axes fraction')
 
-    ax.annotate('{mbps:.0f} MiB/s using {s.params.nthreads:d} threads'.format(
-        mbps=mb_throughput[best_idx],
-        s=data[best_idx]),
-                xy=(n_threads[best_idx], mb_throughput[best_idx]),
+    ax.annotate('{mbps:.0f} MiB/s using {s.nthreads:d} threads'.format(mbps=mb_throughput[best_idx], s=sb),
+                xy=(sb.nthreads, mb_throughput[best_idx]),
                 xytext=(0.3, 0.1),
                 textcoords='axes fraction',
                 arrowprops=dict(facecolor=c,
@@ -165,7 +140,7 @@ def plot_stats_results(data, fig, cc=None):
                                 shrink=0.05))
 
     fig.tight_layout()
-    return best_idx
+    return sb.nthreads
 
 
 def plot_comparison(fig, stats, names=None, threshs=None, colors=None, alpha=0.3, nochunk=False):

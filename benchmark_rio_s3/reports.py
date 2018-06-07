@@ -1,4 +1,7 @@
+import glob
+import pickle
 import numpy as np
+import itertools
 from types import SimpleNamespace
 
 
@@ -27,10 +30,15 @@ def unpack_stats(xx, ms=False):
 
     return SimpleNamespace(chunk_size=chunk_size,
                            nthreads=xx.params.nthreads,
+                           params=xx.params,
+                           _raw=xx,
                            t0=t0,
                            t_end=t_end,
                            t_open=t_open,
                            t_read=t_read,
+                           duration=xx.t_total,
+                           throughput=np.median(fps),
+                           throughput_max=fps.max(),
                            fps=fps,
                            fps_t=fps_t,
                            t_total=t_total)
@@ -56,10 +64,15 @@ def join_reports(s1, s2):
 
 def gen_stats_report(xx, extra_msg=None):
 
-    chunk_size = np.r_[[r.chunk_size for r in xx.stats]]
-    t_open = np.r_[[r.t_open for r in xx.stats]]*1000
-    t_total = np.r_[[r.t_total for r in xx.stats]]*1000
-    t_read = t_total - t_open
+    if not isinstance(xx, StatsResult):
+        xx = StatsResult(**unpack_stats(xx, ms=True).__dict__)
+
+    chunk_size = xx.chunk_size
+    t_open = xx.t_open
+    t_total = xx.t_total
+    t_read = xx.t_read
+    hash = getattr(xx._raw, 'result_hash', None)
+
     hdr = '''
 Tile: {pp.block[0]:d}_{pp.block[1]:d}#{pp.band:d}
    - blocks  : {pp.block_shape[0]:d}x{pp.block_shape[1]:d}@{pp.dtype}
@@ -68,7 +81,6 @@ Tile: {pp.block[0]:d}_{pp.block[1]:d}#{pp.band:d}
 '''.format(pp=xx.params,
            extra_msg='' if extra_msg is None else '   - ' + extra_msg).strip()
 
-    hash = getattr(xx, 'result_hash', None)
     if hash is not None:
         hash = hash[:32]+'..'+hash[-8:]
     else:
@@ -78,32 +90,79 @@ Tile: {pp.block[0]:d}_{pp.block[1]:d}#{pp.band:d}
 -------------------------------------------------------------
 {}
 -------------------------------------------------------------
+  {}
 
-Files read             : {:d}
+Files read             : {:,d}
 Total data bytes       : {:,d}
   (excluding headers)
-Bytes per chunk        : {:.0f} [{:d}..{:d}]
+Bytes per chunk        : {:,d} [{:,d}..{:,d}]
 
-Time:
- per tile:
+ Time        Median Min          Max
+ per tile  --------------------------
   - total   {:7.3f} [{:.<6.1f}..{:.>7.1f}] ms
   - open    {:7.3f} [{:.<6.1f}..{:.>7.1f}] ms {:4.1f}%
   - read    {:7.3f} [{:.<6.1f}..{:.>7.1f}] ms {:4.1f}%
 
- {}
- total_cpu: {:.2f} sec
- walltime : {:.2f} sec
+total_cpu : {:7.2f} sec
+walltime  : {:7.2f} sec
+throughput: {:6.1f} tiles per second
+            {:6.1f} tiles per second per thread
 -------------------------------------------------------------
 '''.format(hdr,
+           hash,
            chunk_size.shape[0],
            chunk_size.sum(),
-           chunk_size.mean().round(), chunk_size.min(), chunk_size.max(),
-           t_total.mean(), t_total.min(), t_total.max(),
-
-           t_open.mean(), t_open.min(), t_open.max(), (t_open/t_total).mean()*100,
-           t_read.mean(), t_read.min(), t_read.max(), (t_read/t_total).mean()*100,
-
-           hash,
-
+           int(np.median(chunk_size)), chunk_size.min(), chunk_size.max(),
+           np.median(t_total), t_total.min(), t_total.max(),
+           np.median(t_open), t_open.min(), t_open.max(), (t_open/t_total).mean()*100,
+           np.median(t_read), t_read.min(), t_read.max(), (t_read/t_total).mean()*100,
            (t_total.sum()*1e-3).round(),
-           xx.t_total).strip()
+           xx.duration,
+           xx.throughput,
+           xx.throughput/xx.nthreads).strip()
+
+
+class StatsResult(object):
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+        if not hasattr(self, 'file'):
+            self.file = ''
+
+    def __repr__(self):
+        return 'x{s.nthreads:d} fps:{s.throughput:.2f} t:{s.duration:.1f}s <{s.file}>'.format(s=self)
+
+    def __str__(self):
+        return self.__repr__()
+
+
+def load_dir(dirname='.', filter='*__*.pickle', ms=True):
+    """ Returns a dictionary
+
+    number_of_threads -> [StatsResult]
+    """
+    def load(fname):
+        with open(fname, 'rb') as f:
+            x = unpack_stats(pickle.load(f), ms=ms)
+            x.file = fname
+            return StatsResult(**x.__dict__)
+
+    files = [f for f in glob.glob(dirname + '/' + filter) if not f.startswith('WRM')]
+
+    data_all = sorted([load(f) for f in files], key=lambda s: s.nthreads)
+    data_all = dict((k, list(v)) for k, v in itertools.groupby(data_all,
+                                                               lambda s: s.nthreads))
+    return data_all
+
+
+def pick_best(d, mode='time'):
+    """ Returns a dictionary
+
+    number_of_threads -> BestUnpackedResults
+    """
+    modes = dict(time=lambda s: s.duration,  # smaller first
+                 throughput=lambda s: -s.throughput  # bigger first
+                 )
+
+    comparator = modes[mode]
+    return {k: sorted(v, key=comparator)[0] for k, v in d.items()}
