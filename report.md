@@ -247,15 +247,34 @@ longer bars on the red (c3) line. Latency can vary quite a bit.
 
 We compute throughput using the following strategy:
 
-Every time a new file is finished processing (in any of the worker threads) we record the time
-from the start of the experiment and the number of files processed, including this file.
-Throughput is then `n_files/elapsed_time`, we plot this as a function of files completed.
-We then take the maximum value observed during the experiment as the main metric of
-performance.
+Every time a new file is finished processing (in any of the worker threads) we
+record the time from the start of the experiment and the number of files
+processed, including this file. Throughput is then `n_files/elapsed_time`, we
+plot this as a function of files completed. We then take typical value observed
+during the experiment (median basically) as the main metric of performance.
 
 ![Throughput Graph](./report_images/fps.png)
 
-TK: summary graph for threads
+Graph above plots throughput as a function of Experiment Time (measured in files
+processed, rather than seconds) for all tested configurations. Throughput takes
+some time to ramp up when using many threads, but then stays at roughly the same
+level most of the time. There are of course variations, most likely due to
+external load or caching on the S3 side.
+
+![Throughput as a function of concurrency graphs](./report_images/threads.png)
+
+In the charts above we can see how throughput changes with more concurrency.
+Throughput increases almost linearly with more worker threads, up until about 20
+threads. After that gains due to concurrency start to taper out. The middle
+graph shows efficiency per worker thread as a function of concurrency. Usually
+one would expect best performance per thread when only a single thread is
+running. We however observe best per thread throughput when 12 threads are
+active. This is probably a side effect of S3 allocating more resources to a
+section of a bucket that experiences higher load. Apart for that anomaly the
+graph looks as expected: as concurrency is increased per thread throughput
+degrades slowly, eventually a point is reached where adding more workers is
+counter-productive as extra work completed by a new worker is offset by
+the efficiency degradation for all workers.
 
 ### Warmup Costs
 
