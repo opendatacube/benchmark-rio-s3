@@ -31,7 +31,7 @@ Amazon S3 is the most cost effective way to store "active" data in AWS, for arch
 there is [Glacier](https://aws.amazon.com/glacier/). S3 is an "object store", but it can
 be superficially viewed as a file system, that can be accessed via authenticated
 HTTP. The details of authentication are quite complex, but also not essential to understand, as
-libraries deal with that aspect of things. Authentication is used for access control. 
+libraries deal with that aspect of things. Authentication is used for access control.
 In case of public data sets with a User Pays policy, authentication is needed for billing purposes.
 Landsat 8 data can be accessed without any credentials, and Sentinel is switching to the User
 Pays model.
@@ -49,7 +49,7 @@ do exactly that; it will first fetch enough data to parse the header, then it wi
 just enough compressed data to return pixels for a region of interest. GeoTIFF
 being an extremely flexible format can be hard to work with over HTTP,
 so [Cloud Optimized GeoTIFF](https://trac.osgeo.org/gdal/wiki/CloudOptimizedGeoTIFF)
-profile has been developed to constrain how GeoTIFF files are constructed in order to enable 
+profile has been developed to constrain how GeoTIFF files are constructed in order to enable
 the most efficient access over HTTP.
 
 
@@ -68,7 +68,7 @@ with rasterio.open('s3://bucket/file.tif', 'r') as f:
 
 If you configured your AWS credentials either with `aws` command line or by using AIM (AWS
 Identity Management) roles in the cloud, the code above will just work. To get the best
-performance out of it extra configuration is required. There is a number of GDAL configuration 
+performance out of it extra configuration is required. There is a number of GDAL configuration
 changes that need to happen. The most important one is to tell GDAL not to look for the
 side-car files, as this makes a lot of HTTP requests and takes a long time, and Cloud
 Optimized GeoTIFFs should not need side-car files. This is achieved with
@@ -156,21 +156,23 @@ Tile: 8_7#1
    - blocks  : 512x512@uint16
    - nthreads: 1
 -------------------------------------------------------------
+  3841b1595346c5529181962af8077098..4a0422bb
 
-Files read             : 1278
+Files read             : 1,278
 Total data bytes       : 493,405,576
   (excluding headers)
-Bytes per chunk        : 386076 [241315..467655]
+Bytes per chunk        : 403,570 [241,315..467,655]
 
-Time:
- per tile:
-  - total    72.329 [34.5.....1012.2] ms
-  - open     44.075 [15.4......986.2] ms 59.8%
-  - read     28.254 [14.8......805.9] ms 40.2%
+ Time        Median Min          Max
+ per tile  --------------------------
+  - total    53.372 [34.5.....1012.2] ms
+  - open     30.934 [15.4......986.2] ms 59.8%
+  - read     21.641 [14.8......805.9] ms 40.2%
 
- 3841b1595346c5529181962af8077098..4a0422bb
- total_cpu: 92.00 sec
- walltime : 92.65 sec
+total_cpu :   92.00 sec
+walltime  :   92.65 sec
+throughput:   13.7 tiles per second
+              13.7 tiles per second per thread
 -------------------------------------------------------------
 ```
 
@@ -191,28 +193,30 @@ The fastest run we observed used 49 threads and completed in 3.39 second - a
 significant improvement over the single threaded performance.
 
 ```
----------------------------------------------------------------------------------------------------
-Tile: 8_7#1                                      | Tile: 8_7#1
-   - blocks  : 512x512@uint16                    |    - blocks  : 512x512@uint16
-   - nthreads: 1                                 |    - nthreads: 49
-   - One Thread                                  |    - Lowest overall latency
----------------------------------------------------------------------------------------------------
-                                                 | 
-Files read             : 1278                    | Files read             : 1278
-Total data bytes       : 493,405,576             | Total data bytes       : 493,405,576
-  (excluding headers)                            |   (excluding headers)
-Bytes per chunk        : 386076 [241315..467655] | Bytes per chunk        : 386076 [241315..467655]
-                                                 | 
-Time:                                            | Time:
- per tile:                                       |  per tile:
-  - total    72.329 [34.5.....1012.2] ms         |   - total   124.496 [42.1......476.1] ms
-  - open     44.075 [15.4......986.2] ms 59.8%   |   - open     66.466 [15.8......412.4] ms 52.8%
-  - read     28.254 [14.8......805.9] ms 40.2%   |   - read     58.030 [17.6......395.0] ms 47.2%
-                                                 | 
- 3841b1595346c5529181962af8077098..4a0422bb      |  3841b1595346c5529181962af8077098..4a0422bb
- total_cpu: 92.00 sec                            |  total_cpu: 159.00 sec
- walltime : 92.65 sec                            |  walltime : 3.39 sec
----------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------
+Tile: 8_7#1                                         | Tile: 8_7#1
+   - blocks  : 512x512@uint16                       |    - blocks  : 512x512@uint16
+   - nthreads: 1                                    |    - nthreads: 49
+   - One Thread                                     |    - Highest Throughput
+---------------------------------------------------------------------------------------------------------
+  3841b1595346c5529181962af8077098..4a0422bb        |   3841b1595346c5529181962af8077098..4a0422bb
+                                                    |
+Files read             : 1,278                      | Files read             : 1,278
+Total data bytes       : 493,405,576                | Total data bytes       : 493,405,576
+  (excluding headers)                               |   (excluding headers)
+Bytes per chunk        : 403,570 [241,315..467,655] | Bytes per chunk        : 403,570 [241,315..467,655]
+                                                    |
+ Time        Median Min          Max                |  Time        Median Min          Max
+ per tile  --------------------------               |  per tile  --------------------------
+  - total    53.372 [34.5.....1012.2] ms            |   - total   112.145 [42.1......476.1] ms
+  - open     30.934 [15.4......986.2] ms 59.8%      |   - open     54.457 [15.8......412.4] ms 52.8%
+  - read     21.641 [14.8......805.9] ms 40.2%      |   - read     48.627 [17.6......395.0] ms 47.2%
+                                                    |
+total_cpu :   92.00 sec                             | total_cpu :  159.00 sec
+walltime  :   92.65 sec                             | walltime  :    3.39 sec
+throughput:   13.7 tiles per second                 | throughput:  371.7 tiles per second
+              13.7 tiles per second per thread      |                7.6 tiles per second per thread
+---------------------------------------------------------------------------------------------------------
 ```
 
 It should be noted that we intentionally exclude "warmup" time from the results above.
