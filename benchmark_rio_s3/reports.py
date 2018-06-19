@@ -103,7 +103,7 @@ Bytes per chunk        : {:,d} [{:,d}..{:,d}]
   - open    {:7.3f} [{:.<6.1f}..{:.>7.1f}] ms {:4.1f}%
   - read    {:7.3f} [{:.<6.1f}..{:.>7.1f}] ms {:4.1f}%
 
-total_cpu : {:7.2f} sec
+total_wait: {:7.2f} sec (across all threads)
 walltime  : {:7.2f} sec
 throughput: {:6.1f} tiles per second
             {:6.1f} tiles per second per thread

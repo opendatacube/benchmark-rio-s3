@@ -169,7 +169,7 @@ Bytes per chunk        : 403,570 [241,315..467,655]
   - open     30.934 [15.4......986.2] ms 59.8%
   - read     21.641 [14.8......805.9] ms 40.2%
 
-total_cpu :   92.00 sec
+total_wait:   92.00 sec (across all threads)
 walltime  :   92.65 sec
 throughput:   13.7 tiles per second
               13.7 tiles per second per thread
@@ -212,7 +212,7 @@ Bytes per chunk        : 403,570 [241,315..467,655] | Bytes per chunk        : 4
   - open     30.934 [15.4......986.2] ms 59.8%      |   - open     54.457 [15.8......412.4] ms 52.8%
   - read     21.641 [14.8......805.9] ms 40.2%      |   - read     48.627 [17.6......395.0] ms 47.2%
                                                     |
-total_cpu :   92.00 sec                             | total_cpu :  159.00 sec
+total_wait:   92.00 sec (across all threads)        | total_wait:  159.00 sec (across all threads)
 walltime  :   92.65 sec                             | walltime  :    3.39 sec
 throughput:   13.7 tiles per second                 | throughput:  371.7 tiles per second
               13.7 tiles per second per thread      |                7.6 tiles per second per thread
