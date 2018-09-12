@@ -71,7 +71,7 @@ class ParallelReader(object):
 
         self._gdal_opts = dict(VSI_CACHE=True,
                                CPL_VSIL_CURL_ALLOWED_EXTENSIONS='tif',
-                               GDAL_DISABLE_READDIR_ON_OPEN=True)
+                               GDAL_DISABLE_READDIR_ON_OPEN='EMPTY_DIR')
 
         if bytes_at_open is not None:
             self._gdal_opts['GDAL_INGESTED_BYTES_AT_OPEN'] = int(bytes_at_open)
