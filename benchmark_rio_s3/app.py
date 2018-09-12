@@ -57,6 +57,8 @@ cli = click.Group(name='bench-rio-s3', help="Bunch of tools for benchmarking ras
               help='Fetch one file per thread prior to recording benchmark data, on by default')
 @click.option('-n', '--threads', type=int, default=1,
               help='Number of processing threads to use')
+@click.option('--header-size', type=int,
+              help='Image header size in KiB, (GDAL_INGESTED_BYTES_AT_OPEN)')
 @click.option('--save-pixel-data',
               is_flag=True, default=False,
               help='Save fetched pixels using npz format from numpy')
@@ -64,6 +66,7 @@ cli = click.Group(name='bench-rio-s3', help="Bunch of tools for benchmarking ras
 def run(prefix, block, dtype, block_shape,
         warmup_more, save_pixel_data,
         threads,
+        header_size,
         url_file):
     """Run individual benchmark.
 
@@ -93,6 +96,11 @@ def run(prefix, block, dtype, block_shape,
     """
     from .bench import run_main
 
+    if header_size is not None and header_size > 0:
+        bytes_at_open = header_size*1024
+    else:
+        bytes_at_open = None
+
     run_main(url_file, threads,
              prefix=prefix,
              mode='rio',
@@ -100,7 +108,8 @@ def run(prefix, block, dtype, block_shape,
              block=block,
              block_shape=block_shape,
              dtype=dtype,
-             npz=save_pixel_data,)
+             npz=save_pixel_data,
+             bytes_at_open=bytes_at_open)
     sys.exit(0)
 
 
@@ -119,8 +128,10 @@ def run(prefix, block, dtype, block_shape,
 @click.option('--skip-bucket-warmup',
               is_flag=True, default=False,
               help="Don't run bucket warmup before running benchmarks")
+@click.option('--header-size', type=int,
+              help='Image header size in KiB, (GDAL_INGESTED_BYTES_AT_OPEN)')
 @click.argument('url_file')
-def run_suite(block, warmup_more, threads, times, skip_bucket_warmup, url_file):
+def run_suite(block, warmup_more, threads, times, skip_bucket_warmup, header_size, url_file):
     """Run benchmark suite.
 
     You need to supply a list of urls to use for testing. These should be
@@ -191,6 +202,8 @@ def run_suite(block, warmup_more, threads, times, skip_bucket_warmup, url_file):
                 'urls.txt']
         if prefix is not None:
             args.insert(-1, '--prefix={}'.format(prefix))
+        if header_size is not None:
+            args.insert(-1, '--header-size={}'.format(header_size))
         return args
 
     threads = threads or [1, 2, 4, 8, 16, 20, 24, 28, 32, 38]

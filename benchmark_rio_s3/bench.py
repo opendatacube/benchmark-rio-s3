@@ -86,7 +86,8 @@ def run_main(file_list_file,
              block=(7, 7),
              block_shape=(512, 512),
              dtype='uint16',
-             npz=False):
+             npz=False,
+             bytes_at_open=None):
     import pickle
 
     def without(xx, skip):
@@ -98,6 +99,7 @@ def run_main(file_list_file,
                          block_shape=block_shape,
                          dtype=dtype,
                          nthreads=nthreads,
+                         bytes_at_open=bytes_at_open,
                          mode=mode,
                          ssl=ssl,
                          band=1)
@@ -123,7 +125,8 @@ def run_main(file_list_file,
 
     rdr = ProcClass(nthreads=pp.nthreads,
                     region_name='ap-southeast-2',
-                    use_ssl=ssl)
+                    use_ssl=ssl,
+                    bytes_at_open=bytes_at_open)
     rdr.warmup()
 
     if wmore:

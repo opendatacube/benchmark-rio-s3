@@ -6,10 +6,11 @@ from .pprio import ParallelReader
 class PReadRIO_bench(object):
     def __init__(self, nthreads,
                  region_name=None,
-                 use_ssl=True):
+                 use_ssl=True,
+                 bytes_at_open=None):
         self._nthreads = nthreads
         self._use_ssl = use_ssl  # At least for now we ignore this param
-        self._proc = ParallelReader(nthreads, region_name=region_name)
+        self._proc = ParallelReader(nthreads, region_name=region_name, bytes_at_open=bytes_at_open)
 
     def warmup(self):
         return self._proc.warmup()

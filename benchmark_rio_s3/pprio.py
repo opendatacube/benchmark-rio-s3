@@ -59,7 +59,8 @@ class ParallelReader(object):
                 proc(url, userdata)
 
     def __init__(self, nthreads,
-                 region_name=None):
+                 region_name=None,
+                 bytes_at_open=None):
         if region_name is None:
             region_name = auto_find_region()  # Will throw on error
 
@@ -71,6 +72,9 @@ class ParallelReader(object):
         self._gdal_opts = dict(VSI_CACHE=True,
                                CPL_VSIL_CURL_ALLOWED_EXTENSIONS='tif',
                                GDAL_DISABLE_READDIR_ON_OPEN=True)
+
+        if bytes_at_open is not None:
+            self._gdal_opts['GDAL_INGESTED_BYTES_AT_OPEN'] = int(bytes_at_open)
 
     def warmup(self, action=None):
         """Mostly needed for benchmarking needs. Ensures that worker threads are
