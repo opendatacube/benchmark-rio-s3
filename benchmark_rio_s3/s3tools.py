@@ -67,11 +67,11 @@ def s3_ls(url, s3=None):
     bucket, prefix = s3_url_parse(url)
 
     s3 = s3 or make_s3_client()
-    paginator = s3.get_paginator('list_objects')
+    paginator = s3.get_paginator('list_objects_v2')
 
     n_skip = len(prefix)
     for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
-        for o in page['Contents']:
+        for o in page.get('Contents', []):
             yield o['Key'][n_skip:]
 
 
