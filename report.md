@@ -72,14 +72,14 @@ performance out of it extra configuration is required. There is a number of GDAL
 changes that need to happen. The most important one is to tell GDAL not to look for the
 side-car files, as this makes a lot of HTTP requests and takes a long time, and Cloud
 Optimized GeoTIFFs should not need side-car files. This is achieved with
-`GDAL_DISABLE_READDIR_ON_OPEN=TRUE` option, but we will also set
+`GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR` option, but we will also set
 `CPL_VSIL_CURL_ALLOWED_EXTENSIONS=tif` and `VSI_CACHE=TRUE`. For more details about various
 options see [GDAL wiki](https://trac.osgeo.org/gdal/wiki/ConfigOptions)
 
 With `rasterio` we use `rasterio.Env` construct to change default GDAL settings:
 
 ```python
-with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN=True,
+with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN='EMPTY_DIR',
                   CPL_VSIL_CURL_ALLOWED_EXTENSIONS='tif',
                   VSI_CACHE=True,
                   region_name='us-west-2'):
