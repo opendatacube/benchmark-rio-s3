@@ -66,7 +66,7 @@ with rasterio.open('s3://bucket/file.tif', 'r') as f:
    im = f.read()
 ```
 
-If you configured your AWS credentials either with `aws` command line or by using AIM (AWS
+If you configured your AWS credentials either with `aws` command line or by using IAM (AWS
 Identity Management) roles in the cloud, the code above will just work. To get the best
 performance out of it extra configuration is required. There is a number of GDAL configuration
 changes that need to happen. The most important one is to tell GDAL not to look for the
@@ -96,7 +96,7 @@ Things will probably still work so you might not notice it immediately.
 Every worker thread needs to setup `rasterio.Env`, environment is not shared
 across threads. For best performance this setup should happen once for the life
 of a thread, not for every file read. Re-using environment across many file
-reads is particularly important if you are using AIM for credentials in the
+reads is particularly important if you are using IAM for credentials in the
 cloud (which you should for security reasons). Obtaining credentials in that
 case can take some time, and there is no guarantee that they will be cached
 somewhere once the environment is teared down.
@@ -303,7 +303,7 @@ processing time.
 
 ## Conclusion
 
-The cost of data access is dominated by TTFB from S3. Typical single threaded
+The cost of data access is dominated by Time To First Byte (TTFB) from S3. Typical single threaded
 throughput is just 14 tiles per second, when reading single tile from each file.
 Having many concurrent requests is essential for decent performance. Scaling
 with more threads works very well, there is little CPU congestion as most of the
@@ -315,7 +315,7 @@ Large number of threads means large memory footprint, implies more expensive
 instances. Using async would be ideal, unfortunately current libraries use
 blocking design, one can not request many file opens/reads from the same thread.
 
-These findings highlight the need for ODC to move away from one time slice at a
+These findings highlight the need for the ODC to move away from one time slice at a
 time data loading regime we currently implement. Data loading plugins need to
 operate on the entirety of the query result. Current approach of single variable
 single time slice load can not deliver reasonable performance when using high
