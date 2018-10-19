@@ -3,6 +3,13 @@ import threading
 from .s3tools import auto_find_region, get_boto3_session
 from .parallel import ParallelStreamProc
 
+try:
+    from rasterio.session import AWSSession
+except ImportError:
+    def AWSSession(session=None):
+        return session
+
+
 __all__ = ["ParallelReader"]
 
 _thread_lcl = threading.local()
@@ -42,7 +49,7 @@ class ParallelReader(object):
                              gdal_opts=None,
                              region_name=None,
                              timer=None):
-        session = _session(region_name)
+        session = AWSSession(session=_session(region_name))
 
         if timer is not None:
             def proc(url, userdata):
@@ -85,7 +92,7 @@ class ParallelReader(object):
         """
         def _warmup():
             session = _session(region_name=self._region_name)
-            with rasterio.Env(session=session, **self._gdal_opts):
+            with rasterio.Env(session=AWSSession(session=session), **self._gdal_opts):
                 if action:
                     action()
             return session.get_credentials()

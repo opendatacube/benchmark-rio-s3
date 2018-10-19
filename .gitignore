@@ -74,3 +74,4 @@ docs/notebooks/
 #Local Visual Studio Code configurations
 .vscode/
 
+/bench_results/
