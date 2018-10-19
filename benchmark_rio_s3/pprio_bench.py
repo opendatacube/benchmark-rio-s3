@@ -1,5 +1,7 @@
 from timeit import default_timer as t_now
 from types import SimpleNamespace
+import rasterio
+import sys
 from .pprio import ParallelReader
 
 
@@ -33,7 +35,11 @@ class PReadRIO_bench(object):
             t1 = t_now()
             f.read(band, window=win, out=dst_slice)
             t2 = t_now()
-            chunk_size = f.block_size(band, *block_idx)
+            try:
+                chunk_size = f.block_size(band, *block_idx)
+            except rasterio.errors.RasterBlockError:
+                print('Failed to read block size for {}'.format(f.name), file=sys.stderr)
+                chunk_size = 0  # probably GDAL specific 0 sized tile
 
             stats[idx] = SimpleNamespace(t_open=t1-t0,
                                          t_total=t2-t0,
