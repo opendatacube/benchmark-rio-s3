@@ -87,7 +87,8 @@ def run_main(file_list_file,
              block_shape=(512, 512),
              dtype='uint16',
              npz=False,
-             bytes_at_open=None):
+             bytes_at_open=None,
+             aws_unsigned=False):
     import pickle
 
     def without(xx, skip):
@@ -100,6 +101,7 @@ def run_main(file_list_file,
                          dtype=dtype,
                          nthreads=nthreads,
                          bytes_at_open=bytes_at_open,
+                         aws_unsigned=aws_unsigned,
                          mode=mode,
                          ssl=ssl,
                          band=1)
@@ -110,12 +112,12 @@ def run_main(file_list_file,
 {}
     files   - {:d}
     threads - {:d}
-    mode    - {}
+    mode    - {}{}
     '''.format('\n'.join(files[:3]),
                '\n'.join(files[-2:]),
                len(files),
                pp.nthreads,
-               mode))
+               mode, ' (no S3 signing)' if aws_unsigned else ''))
 
     procs = {'rio': pprio_bench.PReadRIO_bench}
 
@@ -124,9 +126,10 @@ def run_main(file_list_file,
     ProcClass = procs[mode]
 
     rdr = ProcClass(nthreads=pp.nthreads,
-                    region_name='ap-southeast-2',
+                    region_name=None,  # None -- auto-guess
                     use_ssl=ssl,
-                    bytes_at_open=bytes_at_open)
+                    bytes_at_open=bytes_at_open,
+                    aws_unsigned=aws_unsigned)
     rdr.warmup()
 
     if wmore:

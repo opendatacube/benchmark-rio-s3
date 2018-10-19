@@ -62,11 +62,15 @@ cli = click.Group(name='bench-rio-s3', help="Bunch of tools for benchmarking ras
 @click.option('--save-pixel-data',
               is_flag=True, default=False,
               help='Save fetched pixels using npz format from numpy')
+@click.option('--aws-unsigned',
+              is_flag=True, default=False,
+              help='Do not sign S3 requests, only works on public buckets')
 @click.argument('url_file')
 def run(prefix, block, dtype, block_shape,
         warmup_more, save_pixel_data,
         threads,
         header_size,
+        aws_unsigned,
         url_file):
     """Run individual benchmark.
 
@@ -109,7 +113,8 @@ def run(prefix, block, dtype, block_shape,
              block_shape=block_shape,
              dtype=dtype,
              npz=save_pixel_data,
-             bytes_at_open=bytes_at_open)
+             bytes_at_open=bytes_at_open,
+             aws_unsigned=aws_unsigned)
     sys.exit(0)
 
 
@@ -130,8 +135,11 @@ def run(prefix, block, dtype, block_shape,
               help="Don't run bucket warmup before running benchmarks")
 @click.option('--header-size', type=int,
               help='Image header size in KiB, (GDAL_INGESTED_BYTES_AT_OPEN)')
+@click.option('--aws-unsigned',
+              is_flag=True, default=False,
+              help='Do not sign S3 requests, only works on public buckets')
 @click.argument('url_file')
-def run_suite(block, warmup_more, threads, times, skip_bucket_warmup, header_size, url_file):
+def run_suite(block, warmup_more, threads, times, skip_bucket_warmup, header_size, aws_unsigned, url_file):
     """Run benchmark suite.
 
     You need to supply a list of urls to use for testing. These should be
@@ -204,6 +212,8 @@ def run_suite(block, warmup_more, threads, times, skip_bucket_warmup, header_siz
             args.insert(-1, '--prefix={}'.format(prefix))
         if header_size is not None:
             args.insert(-1, '--header-size={}'.format(header_size))
+        if aws_unsigned:
+            args.insert(-1, '--aws-unsigned')
         return args
 
     threads = threads or [1, 2, 4, 8, 16, 20, 24, 28, 32, 38]
