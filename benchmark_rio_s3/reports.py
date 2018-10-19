@@ -18,12 +18,15 @@ def files_per_second(t_end):
 def unpack_stats(xx, ms=False):
     t_scaler = 1000 if ms else 1
 
-    chunk_size = np.r_[[r.chunk_size for r in xx.stats]]
-    t_open = np.r_[[r.t_open for r in xx.stats]]*t_scaler
-    t_total = np.r_[[r.t_total for r in xx.stats]]*t_scaler
+    stats = [r for r in xx.stats if r is not None]
+    n_bad = len(xx.stats) - len(stats)
+
+    chunk_size = np.r_[[r.chunk_size for r in stats]]
+    t_open = np.r_[[r.t_open for r in stats]]*t_scaler
+    t_total = np.r_[[r.t_total for r in stats]]*t_scaler
     t_read = t_total - t_open
 
-    t0 = np.r_[[r.t0 for r in xx.stats]]*t_scaler
+    t0 = np.r_[[r.t0 for r in stats]]*t_scaler
     t0 -= t0.min()
     t_end = t0 + t_total
     fps_t, fps = files_per_second(t_end/t_scaler)
@@ -36,6 +39,7 @@ def unpack_stats(xx, ms=False):
                            t_end=t_end,
                            t_open=t_open,
                            t_read=t_read,
+                           n_bad=n_bad,
                            duration=xx.t_total,
                            throughput=np.median(fps),
                            throughput_max=fps.max(),
@@ -71,6 +75,7 @@ def gen_stats_report(xx, extra_msg=None):
     t_open = xx.t_open
     t_total = xx.t_total
     t_read = xx.t_read
+    n_bad = xx.n_bad
     hash = getattr(xx._raw, 'result_hash', None)
 
     hdr = '''
@@ -86,12 +91,17 @@ Tile: {pp.block[0]:d}_{pp.block[1]:d}#{pp.band:d}
     else:
         hash = "<no hash recorded>"
 
+    if n_bad > 0:
+        failures = 'WARNING: {} datasets failed to load\n'.format(n_bad)
+    else:
+        failures = ''
+
     return '''
 -------------------------------------------------------------
 {}
 -------------------------------------------------------------
   {}
-
+{}
 Files read             : {:,d}
 Total data bytes       : {:,d}
   (excluding headers)
@@ -110,6 +120,7 @@ throughput: {:6.1f} tiles per second
 -------------------------------------------------------------
 '''.format(hdr,
            hash,
+           failures,
            chunk_size.shape[0],
            chunk_size.sum(),
            int(np.median(chunk_size)), chunk_size.min(), chunk_size.max(),

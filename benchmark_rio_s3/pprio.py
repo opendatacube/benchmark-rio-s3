@@ -1,5 +1,6 @@
 import rasterio
 import threading
+import sys
 from .s3tools import auto_find_region, get_boto3_session
 from .parallel import ParallelStreamProc
 
@@ -63,7 +64,10 @@ class ParallelReader(object):
 
         with rasterio.Env(session=session, **gdal_opts):
             for userdata, url in src_stream:
-                proc(url, userdata)
+                try:
+                    proc(url, userdata)
+                except Exception as e:
+                    print('Error when reading: {}\n...({})'.format(url, str(e)), file=sys.stderr)
 
     def __init__(self, nthreads,
                  region_name=None,
