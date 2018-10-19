@@ -171,9 +171,18 @@ def run_suite(block, warmup_more, threads, times, skip_bucket_warmup, header_siz
     import math
 
     def setup_output_dir(urls):
-        out_dir = Path(''.join(datetime.now().isoformat().split(':')[:2]))
+        def find_first_available_dir(base):
+            if not Path(base).exists():
+                return Path(base)
+            for i in range(1, 100):
+                p = Path(base + '-{:02d}'.format(i))
+                if not p.exists():
+                    return p
+            return None
 
-        if out_dir.exists():
+        out_dir = find_first_available_dir(''.join(datetime.now().isoformat().split(':')[:2]))
+
+        if out_dir is None or out_dir.exists():
             raise click.ClickException('Output directory: {} already exists'.format(out_dir))
 
         out_dir.mkdir()
