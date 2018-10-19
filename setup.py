@@ -12,7 +12,7 @@ setup(
     description='Tools for benchmarking multi-threaded performance of Rasterio/GDAL when accessing files on S3',
     python_requires='>=3.5',
     install_requires=['numpy',
-                      'rasterio',
+                      'rasterio>=1.0.0',
                       'requests',
                       'botocore',
                       'boto3',

@@ -50,16 +50,17 @@ class ParallelReader(object):
                              gdal_opts=None,
                              region_name=None,
                              timer=None):
+        from rasterio.path import parse_path
         session = AWSSession(session=_session(region_name))
 
         if timer is not None:
             def proc(url, userdata):
                 t0 = timer()
-                with rasterio.open(url, 'r') as f:
+                with rasterio.DatasetReader(parse_path(url), sharing=False) as f:
                     on_file_cbk(f, userdata, t0=t0)
         else:
             def proc(url, userdata):
-                with rasterio.open(url, 'r') as f:
+                with rasterio.DatasetReader(parse_path(url), sharing=False) as f:
                     on_file_cbk(f, userdata)
 
         with rasterio.Env(session=session, **gdal_opts):
